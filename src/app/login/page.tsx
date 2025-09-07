@@ -53,7 +53,7 @@ function ShuffleText({ text, duration = 1200, fps = 30 }: { text: string; durati
     );
 }
 
-export default function LoginPage() {
+function LoginForm() {
     const router = useRouter();
     const search = useSearchParams();
     const next = search.get("next") || "/dashboard";
@@ -174,5 +174,13 @@ export default function LoginPage() {
                 </Card>
             </div>
         </div>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={<div className="min-h-svh grid place-items-center">Loading...</div>}>
+            <LoginForm />
+        </Suspense>
     );
 }
