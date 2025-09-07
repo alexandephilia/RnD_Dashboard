@@ -125,7 +125,7 @@ const createTouchTexture = () => {
     };
 };
 
-const createLiquidEffect = (texture: Texture, opts?: { strength?: number; freq?: number }) => {
+const createLiquidEffect = (texture: any, opts?: { strength?: number; freq?: number }) => {
     const fragment = `
     uniform sampler2D uTexture;
     uniform float uStrength;
