@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { RiLoader4Line, RiLockLine, RiUserLine } from "@remixicon/react";
 import { Press_Start_2P } from "next/font/google";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 const pressStart = Press_Start_2P({ weight: "400", subsets: ["latin"] });
 
