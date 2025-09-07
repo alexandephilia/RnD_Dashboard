@@ -1,0 +1,100 @@
+
+> app@0.1.0 dev
+> next dev --turbopack -p 3000
+
+   ▲ Next.js 15.5.2 (Turbopack)
+   - Local:        http://localhost:3000
+   - Network:      http://127.0.2.2:3000
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 816ms
+ ○ Compiling / ...
+ GET /favicon.ico 200 in 1435ms
+ ✓ Compiled / in 3.1s
+ GET /apple-touch-icon.png 404 in 2436ms
+ GET /apple-touch-icon-precomposed.png 404 in 2442ms
+ GET / 307 in 2493ms
+ ○ Compiling /dashboard ...
+ ✓ Compiled /dashboard in 1216ms
+ GET /dashboard 200 in 4227ms
+ GET /favicon.ico?favicon.0b3bf435.ico 200 in 250ms
+ GET / 307 in 85ms
+ GET /dashboard 200 in 13096ms
+ ✓ Compiled in 142ms
+ ✓ Compiled in 164ms
+ ✓ Compiled in 64ms
+ ✓ Compiled in 133ms
+ ✓ Compiled in 129ms
+ ✓ Compiled /api/rnd/token-calls in 153ms
+ GET /api/rnd/token-calls?limit=5 200 in 617ms
+ ✓ Compiled /api/rnd/stats in 107ms
+ GET /api/rnd/stats 200 in 477ms
+ ✓ Compiled in 155ms
+ GET /api/rnd/stats 200 in 384ms
+ GET /api/rnd/stats 200 in 320ms
+ GET /favicon.ico 200 in 250ms
+ GET /api/rnd/stats 200 in 295ms
+ GET /favicon.ico 200 in 231ms
+ ✓ Compiled /api/rnd/users in 128ms
+ GET /api/rnd/users 200 in 401ms
+ GET /api/rnd/stats 200 in 279ms
+ GET /api/rnd/tokens 404 in 64ms
+ GET /favicon.ico?favicon.0b3bf435.ico 200 in 277ms
+ GET /api/rnd/token 404 in 73ms
+ GET /api/rnd/tokens 404 in 47ms
+ GET /api/rnd/stats 200 in 286ms
+ GET /api/rnd/stats 200 in 264ms
+ GET /api/rnd/token-calls?limit=2 200 in 251ms
+ GET /api/rnd/users?limit=2 200 in 268ms
+ GET /api/rnd/token-calls?limit=2 200 in 298ms
+ GET /apple-touch-icon.png 404 in 177ms
+ GET /apple-touch-icon-precomposed.png 404 in 184ms
+ GET /favicon.ico 200 in 267ms
+ GET /api/rnd/token-calls?limit=2 200 in 303ms
+ GET /api/rnd/token-calls 200 in 283ms
+ GET /api/rnd/stats 200 in 321ms
+ GET /api/rnd/stats 200 in 274ms
+ ✓ Compiled in 379ms
+ GET /api/rnd/token-calls 200 in 279ms
+ GET /apple-touch-icon-precomposed.png 404 in 68ms
+ GET /apple-touch-icon.png 404 in 63ms
+ ✓ Compiled in 177ms
+ ✓ Compiled in 149ms
+ ✓ Compiled in 214ms
+ ✓ Compiled in 122ms
+ ✓ Compiled in 129ms
+ GET /api/rnd/stats 200 in 570ms
+ ✓ Compiled in 260ms
+ GET /api/rnd/stats 200 in 558ms
+ ✓ Compiled in 216ms
+ ✓ Compiled in 147ms
+ ✓ Compiled in 160ms
+ GET /api/rnd/stats 200 in 635ms
+ ✓ Compiled in 232ms
+ ✓ Compiled in 538ms
+ ✓ Compiled in 278ms
+ ✓ Compiled in 235ms
+ ✓ Compiled in 159ms
+ ✓ Compiled in 277ms
+ ✓ Compiled in 160ms
+ ✓ Compiled in 573ms
+ ✓ Compiled in 372ms
+ ✓ Compiled in 327ms
+ ✓ Compiled in 213ms
+ ✓ Compiled in 127ms
+ ✓ Compiled in 147ms
+ ✓ Compiled in 76ms
+ ✓ Compiled in 212ms
+ ✓ Compiled in 324ms
+ ✓ Compiled in 279ms
+ ✓ Compiled in 141ms
+ ✓ Compiled in 215ms
+ ○ Compiling middleware ...
+ ✓ Compiled middleware in 584ms
+ ✓ Compiled middleware in 4ms
+ ✓ Compiled in 156ms
+ ✓ Compiled in 222ms
+ ✓ Compiled in 784ms
+ ✓ Compiled in 102ms
+ ✓ Compiled in 197ms

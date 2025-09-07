@@ -1,0 +1,36 @@
+[
+  {
+    "_id": "68bc3aff14d7f8f5db5ea002",
+    "user_id": "5568154257",
+    "username": "nihilistz",
+    "first_name": "‌‌‎ ‎ⵁxNihilist",
+    "joined_at": "2025-09-06T13:45:35.241Z",
+    "is_active": true,
+    "createdAt": "2025-09-06T13:45:35.246Z",
+    "updatedAt": "2025-09-06T13:45:35.246Z",
+    "__v": 0
+  },
+  {
+    "_id": "68bc3b1a14d7f8f5db5ea1b0",
+    "user_id": "7788991122",
+    "username": "signalbot",
+    "first_name": "Signal Bot",
+    "joined_at": "2025-09-06T13:50:01.004Z",
+    "is_active": true,
+    "createdAt": "2025-09-06T13:50:01.104Z",
+    "updatedAt": "2025-09-06T13:50:01.104Z",
+    "__v": 0
+  },
+  {
+    "_id": "68bc3c4414d7f8f5db5ea310",
+    "user_id": "2233445566",
+    "username": "alpha",
+    "first_name": "Alpha User",
+    "joined_at": "2025-09-06T13:56:05.010Z",
+    "is_active": false,
+    "createdAt": "2025-09-06T13:56:05.110Z",
+    "updatedAt": "2025-09-06T13:56:05.110Z",
+    "__v": 0
+  }
+]
+

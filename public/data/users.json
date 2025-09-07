@@ -1,0 +1,142 @@
+[
+  {
+    "id": "A-1001",
+    "image": "https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/logo-01_kp2j8x.png",
+    "name": "Alice Chen",
+    "status": "Active",
+    "location": "San Francisco, USA",
+    "verified": true,
+    "referral": {
+      "name": "John Doe",
+      "image": "https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/logo-01_kp2j8x.png"
+    },
+    "value": 82,
+    "joinDate": "2024-03-18"
+  },
+  {
+    "id": "A-1002",
+    "image": "https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/logo-01_kp2j8x.png",
+    "name": "Brian Patel",
+    "status": "Inactive",
+    "location": "New York, USA",
+    "verified": false,
+    "referral": {
+      "name": "Jane Roe",
+      "image": "https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/logo-01_kp2j8x.png"
+    },
+    "value": 44,
+    "joinDate": "2024-02-01"
+  },
+  {
+    "id": "A-1003",
+    "image": "https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/logo-01_kp2j8x.png",
+    "name": "Carla Gomez",
+    "status": "Active",
+    "location": "Madrid, Spain",
+    "verified": true,
+    "referral": {
+      "name": "Paul Atreides",
+      "image": "https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/logo-01_kp2j8x.png"
+    },
+    "value": 71,
+    "joinDate": "2024-01-12"
+  },
+  {
+    "id": "A-1004",
+    "image": "https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/logo-01_kp2j8x.png",
+    "name": "Dmitri Ivanov",
+    "status": "Pending",
+    "location": "Moscow, Russia",
+    "verified": false,
+    "referral": {
+      "name": "Sarah Connor",
+      "image": "https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/logo-01_kp2j8x.png"
+    },
+    "value": 58,
+    "joinDate": "2024-04-22"
+  },
+  {
+    "id": "A-1005",
+    "image": "https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/logo-01_kp2j8x.png",
+    "name": "Emma Li",
+    "status": "Active",
+    "location": "Singapore",
+    "verified": true,
+    "referral": {
+      "name": "Bruce Wayne",
+      "image": "https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/logo-01_kp2j8x.png"
+    },
+    "value": 63,
+    "joinDate": "2024-05-05"
+  },
+  {
+    "id": "A-1006",
+    "image": "https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/logo-01_kp2j8x.png",
+    "name": "Felix Hart",
+    "status": "Active",
+    "location": "Berlin, Germany",
+    "verified": false,
+    "referral": {
+      "name": "Mina Lee",
+      "image": "https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/logo-01_kp2j8x.png"
+    },
+    "value": 52,
+    "joinDate": "2024-03-03"
+  },
+  {
+    "id": "A-1007",
+    "image": "https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/logo-01_kp2j8x.png",
+    "name": "Grace Kim",
+    "status": "Inactive",
+    "location": "Seoul, Korea",
+    "verified": true,
+    "referral": {
+      "name": "Peter Parker",
+      "image": "https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/logo-01_kp2j8x.png"
+    },
+    "value": 39,
+    "joinDate": "2024-06-09"
+  },
+  {
+    "id": "A-1008",
+    "image": "https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/logo-01_kp2j8x.png",
+    "name": "Hassan Ali",
+    "status": "Active",
+    "location": "Dubai, UAE",
+    "verified": true,
+    "referral": {
+      "name": "Clark Kent",
+      "image": "https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/logo-01_kp2j8x.png"
+    },
+    "value": 77,
+    "joinDate": "2024-05-28"
+  },
+  {
+    "id": "A-1009",
+    "image": "https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/logo-01_kp2j8x.png",
+    "name": "Isabella Rossi",
+    "status": "Pending",
+    "location": "Rome, Italy",
+    "verified": false,
+    "referral": {
+      "name": "Tony Stark",
+      "image": "https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/logo-01_kp2j8x.png"
+    },
+    "value": 48,
+    "joinDate": "2024-07-11"
+  },
+  {
+    "id": "A-1010",
+    "image": "https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/logo-01_kp2j8x.png",
+    "name": "Jonah Blake",
+    "status": "Active",
+    "location": "Austin, USA",
+    "verified": true,
+    "referral": {
+      "name": "Natasha Romanoff",
+      "image": "https://raw.githubusercontent.com/origin-space/origin-images/refs/heads/main/exp1/logo-01_kp2j8x.png"
+    },
+    "value": 66,
+    "joinDate": "2024-01-23"
+  }
+]

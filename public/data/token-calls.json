@@ -1,0 +1,86 @@
+[
+  {
+    "_id": "68bc3aff14d7f8f5db5ea005",
+    "group_id": "5568154257",
+    "token_address": "j3nkxxxzcnnimjkw9hyb2k4luxgwb6t1ftptqvsv3kfr",
+    "first_poster": {
+      "user_id": "5568154257",
+      "username": "nihilistz",
+      "first_name": "‌‌‎ ‎ⵁxNihilist",
+      "posted_at": "2025-09-06T13:45:35.253Z"
+    },
+    "first_mcap": 141448499,
+    "last_mcap": 141448499,
+    "last_price": 1.122400352,
+    "last_updated": "2025-09-06T13:45:35.253Z",
+    "token_info": {
+      "name": "SPX6900 (Wormhole)",
+      "symbol": "SPX",
+      "decimals": 8,
+      "logo": "https://dd.dexscreener.com/ds-data/tokens/solana/J3NKxxXZcnNiMjKw9hYb2K4LUxgwB6t1FtPtQVsv3KFr.png?key=d66be8"
+    },
+    "post_count": 1,
+    "ath_mcap": 2113354305.1434839,
+    "ath_at": "2025-07-28T11:24:33.852Z",
+    "ath_source": "coingecko_coingecko_api_ath",
+    "createdAt": "2025-09-06T13:45:35.257Z",
+    "updatedAt": "2025-09-06T13:45:35.966Z",
+    "__v": 0
+  },
+  {
+    "_id": "68bc3b1a14d7f8f5db5ea1a9",
+    "group_id": "5568154257",
+    "token_address": "4bcxnnkniss2v3s8p7pc0gx7c6q5tzp0kzv4st3ng0e3",
+    "first_poster": {
+      "user_id": "5568154257",
+      "username": "nihilistz",
+      "first_name": "‌‌‎ ‎ⵁxNihilist",
+      "posted_at": "2025-09-06T13:49:12.104Z"
+    },
+    "first_mcap": 17500000,
+    "last_mcap": 17988000,
+    "last_price": 0.0349912,
+    "last_updated": "2025-09-06T13:52:01.003Z",
+    "token_info": {
+      "name": "MOONWORM",
+      "symbol": "MWM",
+      "decimals": 6,
+      "logo": "https://dd.dexscreener.com/ds-data/tokens/solana/4BCxNNkniss2V3s8P7pc0gX7c6q5tZP0KzV4st3Ng0E3.png?key=d66be8"
+    },
+    "post_count": 3,
+    "ath_mcap": 25000000.12,
+    "ath_at": "2025-09-06T13:51:12.104Z",
+    "ath_source": "dexscreener_stream",
+    "createdAt": "2025-09-06T13:49:12.204Z",
+    "updatedAt": "2025-09-06T13:52:01.003Z",
+    "__v": 0
+  },
+  {
+    "_id": "68bc3c4414d7f8f5db5ea30f",
+    "group_id": "5568154257",
+    "token_address": "7v9zeg5vjj92pmq0c7m8m0t5wqkz8k4r3p9k3r2q8y1",
+    "first_poster": {
+      "user_id": "7788991122",
+      "username": "signalbot",
+      "first_name": "Signal Bot",
+      "posted_at": "2025-09-06T13:55:55.555Z"
+    },
+    "first_mcap": 5120000,
+    "last_mcap": 4990000,
+    "last_price": 0.00011224,
+    "last_updated": "2025-09-06T13:58:42.100Z",
+    "token_info": {
+      "name": "DEGEN MEME",
+      "symbol": "DEGEN",
+      "decimals": 9,
+      "logo": "https://dd.dexscreener.com/ds-data/tokens/solana/7V9zEg5VJj92pmQ0C7m8M0T5wQKZ8K4r3P9k3R2Q8y1.png?key=d66be8"
+    },
+    "post_count": 6,
+    "ath_mcap": 10500000.987,
+    "ath_at": "2025-09-06T13:57:22.880Z",
+    "ath_source": "coingecko_snapshot",
+    "createdAt": "2025-09-06T13:55:55.655Z",
+    "updatedAt": "2025-09-06T13:58:42.100Z",
+    "__v": 0
+  }
+]
