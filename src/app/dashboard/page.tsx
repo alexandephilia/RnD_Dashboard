@@ -123,7 +123,7 @@ export default async function Page() {
     const usersPlain: unknown[] = JSON.parse(JSON.stringify(users));
 
     // Derive dashboard stats for RnD_Bot monitoring
-    const uniq = <T, K extends keyof string | number | symbol>(arr: T[], key: (item: T) => K) =>
+    const uniq = <T>(arr: T[], key: (item: T) => unknown) =>
         new Set(arr.map(key).filter(Boolean)).size;
 
     const now = Date.now();

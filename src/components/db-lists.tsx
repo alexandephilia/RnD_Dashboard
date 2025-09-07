@@ -90,7 +90,7 @@ export function DbLists({ tokenCalls, users }: Props) {
             }
         }, 30000);
         return () => clearInterval(id);
-    }, []);
+    }, [sortCalls]);
 
     // Poll users regularly from proxy
     useEffect(() => {
@@ -109,7 +109,7 @@ export function DbLists({ tokenCalls, users }: Props) {
             active = false;
             clearInterval(id);
         };
-    }, []);
+    }, [sortUsers]);
 
     return (
         <>

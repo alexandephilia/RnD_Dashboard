@@ -58,7 +58,7 @@ export function SystemStatus({ tokenCalls, users }: Props) {
         const now = Date.now();
         const oneHourAgo = now - 60 * 60 * 1000;
 
-        const calls = Array.isArray(tokenCalls) ? (tokenCalls as any[]) : [];
+        const calls = Array.isArray(tokenCalls) ? (tokenCalls as unknown[]) : [];
         const tsList = calls.map(parseTimestamp).filter((t): t is number => t != null);
         const lastTs = override?.lastTs ?? (tsList.length ? Math.max(...tsList) : null);
         const lastDelta = lastTs ? now - lastTs : Infinity;
