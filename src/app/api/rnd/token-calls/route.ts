@@ -22,7 +22,8 @@ export async function GET(req: NextRequest) {
                 .toArray();
             return Response.json(docs, { headers: { "Cache-Control": "no-store" } });
         }
-    } catch {
+    } catch (error) {
+        console.error("MongoDB error in token-calls:", error);
         // fall through to upstream
     }
 
