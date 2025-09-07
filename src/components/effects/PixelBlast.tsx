@@ -146,7 +146,7 @@ const createLiquidEffect = (texture: any, opts?: { strength?: number; freq?: num
     }
     `;
     return new Effect('LiquidEffect', fragment, {
-        uniforms: new Map<string, THREE.Uniform>([
+        uniforms: new Map<string, any>([
             ['uTexture', new THREE.Uniform(texture)],
             ['uStrength', new THREE.Uniform(opts?.strength ?? 0.025)],
             ['uTime', new THREE.Uniform(0)],
@@ -358,17 +358,17 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
     const speedRef = useRef(speed);
 
     const threeRef = useRef<{
-        renderer: THREE.WebGLRenderer;
-        scene: THREE.Scene;
-        camera: THREE.OrthographicCamera;
-        material: THREE.ShaderMaterial;
-        clock: THREE.Clock;
+        renderer: any;
+        scene: any;
+        camera: any;
+        material: any;
+        clock: any;
         clickIx: number;
         uniforms: {
-            uResolution: { value: THREE.Vector2 };
+            uResolution: { value: any };
             uTime: { value: number };
-            uColor: { value: THREE.Color };
-            uClickPos: { value: THREE.Vector2[] };
+            uColor: { value: any };
+            uClickPos: { value: any[] };
             uClickTimes: { value: Float32Array };
             uShapeType: { value: number };
             uPixelSize: { value: number };
@@ -383,7 +383,7 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
         };
         resizeObserver?: ResizeObserver;
         raf?: number;
-        quad?: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>;
+        quad?: any;
         timeOffset?: number;
         composer?: EffectComposer;
         touch?: ReturnType<typeof createTouchTexture>;
@@ -511,7 +511,7 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
                     'NoiseEffect',
                     `uniform float uTime; uniform float uAmount; float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453);} void mainUv(inout vec2 uv){} void mainImage(const in vec4 inputColor,const in vec2 uv,out vec4 outputColor){ float n=hash(floor(uv*vec2(1920.0,1080.0))+floor(uTime*60.0)); float g=(n-0.5)*uAmount; outputColor=inputColor+vec4(vec3(g),0.0);} `,
                     {
-                        uniforms: new Map<string, THREE.Uniform>([
+                        uniforms: new Map<string, any>([
                             ['uTime', new THREE.Uniform(0)],
                             ['uAmount', new THREE.Uniform(noiseAmount)]
                         ])
