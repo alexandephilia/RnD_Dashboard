@@ -7,7 +7,7 @@ import {
     SheetHeader,
     SheetTitle,
 } from "@/components/ui/sheet";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type Props = {
     tokenCalls: unknown[];
