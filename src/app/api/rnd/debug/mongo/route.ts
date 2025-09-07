@@ -1,15 +1,43 @@
 import { getDbAndCollections, getMongoClient, getMongoUriInfo, parseMongoUri } from "@/server/db/mongo";
 import dns from "dns/promises";
 
+type SrvLookup = { ok: boolean; records?: number; error?: string };
+type URISource = "MONGO_PUBLIC_URL" | "MONGO_URL" | "MONGODB_URI" | null;
+type DebugMongoResponse = {
+  ok: boolean;
+  env: {
+    MONGO_DB_NAME: string;
+    MONGO_COLLECTION_TOKEN_CALLS: string;
+    MONGO_COLLECTION_USERS: string;
+    hasPublicUrl: boolean;
+    hasInternalUrl: boolean;
+    hasMongodbUri: boolean;
+    uriSource: URISource;
+    uriKind: "srv" | "standard" | null;
+    hostPreview: string | null;
+    srvLookup?: SrvLookup;
+  };
+  databases?: { name: string; sizeOnDisk?: number }[];
+  collections?: string[];
+  sampleTokenCalls?: unknown[];
+  sampleTokenCallsError?: string;
+  sampleUsers?: unknown[];
+  sampleUsersError?: string;
+  connectionTest?: "SUCCESS" | "FAILED";
+  error?: string;
+};
+
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET() {
   const { dbName, tokenCalls, users } = getDbAndCollections();
   const uriInfo = getMongoUriInfo();
-  const parsed = uriInfo.uri ? parseMongoUri(uriInfo.uri) : ({ kind: null, host: null } as any);
+  const parsed: { kind: "srv" | "standard" | null; host: string | null } = uriInfo.uri
+    ? parseMongoUri(uriInfo.uri)
+    : { kind: null, host: null };
 
-  let srvLookup: any = undefined;
+  let srvLookup: SrvLookup | undefined = undefined;
   if (parsed?.kind === "srv" && parsed?.host) {
     try {
       const records = await dns.resolveSrv(`_mongodb._tcp.${parsed.host}`);
@@ -19,7 +47,7 @@ export async function GET() {
     }
   }
 
-  const base = {
+  const base: DebugMongoResponse = {
     ok: true,
     env: {
       MONGO_DB_NAME: dbName,
@@ -28,12 +56,12 @@ export async function GET() {
       hasPublicUrl: Boolean(process.env.MONGO_PUBLIC_URL),
       hasInternalUrl: Boolean(process.env.MONGO_URL),
       hasMongodbUri: Boolean(process.env.MONGODB_URI),
-      uriSource: uriInfo.source,
+      uriSource: uriInfo.source as URISource,
       uriKind: parsed?.kind || null,
       hostPreview: parsed?.host || null,
       srvLookup,
     },
-  } as any;
+  };
 
   try {
     const client = await getMongoClient();
@@ -76,4 +104,3 @@ export async function GET() {
     return Response.json(base, { status: 500 });
   }
 }
-

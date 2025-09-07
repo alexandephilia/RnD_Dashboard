@@ -2,6 +2,35 @@ import { getBotConfig } from "@/lib/config";
 import { getDbAndCollections, getMongoClient, getMongoUriInfo, parseMongoUri } from "@/server/db/mongo";
 import dns from "dns/promises";
 
+type SrvLookup = { ok: boolean; records?: number; error?: string };
+type URISource = "MONGO_PUBLIC_URL" | "MONGO_URL" | "MONGODB_URI" | null;
+type EndpointTest = { url: string; status: number; ok: boolean; contentType: string; bodyPreview: string };
+type DebugResponse = {
+  ok: boolean;
+  timestamp: string;
+  environment: { NODE_ENV?: string; VERCEL?: string; VERCEL_ENV?: string };
+  mongodb: {
+    hasPublicUrl: boolean;
+    hasInternalUrl: boolean;
+    hasMongodbUri: boolean;
+    uriSource: URISource;
+    uriKind: "srv" | "standard" | null;
+    hostPreview: string | null;
+    srvLookup?: SrvLookup;
+    dbName: string;
+    collections: { tokenCalls: string; users: string };
+    connectionTest?: "SUCCESS" | "FAILED";
+    connectionError?: string;
+  };
+  botApi: {
+    base: string;
+    hasToken: boolean;
+    paths: { stats: string; tokenCalls: string; users: string; sse: string };
+    tests?: { stats: EndpointTest; users: EndpointTest; tokenCalls: EndpointTest } | "FAILED";
+    testError?: string;
+  };
+};
+
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -11,9 +40,11 @@ export async function GET() {
     const { dbName, tokenCalls, users } = getDbAndCollections();
 
     const uriInfo = getMongoUriInfo();
-    const parsed = uriInfo.uri ? parseMongoUri(uriInfo.uri) : ({ kind: null, host: null } as any);
+    const parsed: { kind: "srv" | "standard" | null; host: string | null } = uriInfo.uri
+      ? parseMongoUri(uriInfo.uri)
+      : { kind: null, host: null };
 
-    let srvLookup: any = undefined;
+    let srvLookup: SrvLookup | undefined = undefined;
     if (parsed?.kind === "srv" && parsed?.host) {
       try {
         const records = await dns.resolveSrv(`_mongodb._tcp.${parsed.host}`);
@@ -23,7 +54,7 @@ export async function GET() {
       }
     }
 
-    const result: any = {
+    const result: DebugResponse = {
       ok: true,
       timestamp: new Date().toISOString(),
       environment: {
@@ -35,7 +66,7 @@ export async function GET() {
         hasPublicUrl: Boolean(process.env.MONGO_PUBLIC_URL),
         hasInternalUrl: Boolean(process.env.MONGO_URL),
         hasMongodbUri: Boolean(process.env.MONGODB_URI),
-        uriSource: uriInfo.source,
+        uriSource: uriInfo.source as URISource,
         uriKind: parsed?.kind || null,
         hostPreview: parsed?.host || null,
         srvLookup,
@@ -63,7 +94,7 @@ export async function GET() {
     // Test external API endpoints (stats, users, token-calls)
     try {
       const headers = { ...(token ? { Authorization: `Bearer ${token}` } : {}) } as Record<string, string>;
-      const test = async (p: string) => {
+      const test = async (p: string): Promise<EndpointTest> => {
         const url = new URL(p, base).toString();
         const res = await fetch(url, { headers, cache: "no-store" });
         const contentType = res.headers.get("content-type") || "";
@@ -101,4 +132,3 @@ export async function GET() {
     );
   }
 }
-
