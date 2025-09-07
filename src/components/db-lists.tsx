@@ -42,10 +42,10 @@ export function DbLists({ tokenCalls, users }: Props) {
         return toMillis(obj?.updatedAt ?? obj?.createdAt ?? obj?.joined_at);
     };
 
-    const sortCalls = (arr: unknown[]) =>
-        [...(Array.isArray(arr) ? arr : [])].sort((a, b) => callTs(b) - callTs(a));
-    const sortUsers = (arr: unknown[]) =>
-        [...(Array.isArray(arr) ? arr : [])].sort((a, b) => userTs(b) - userTs(a));
+    const sortCalls = useCallback((arr: unknown[]) =>
+        [...(Array.isArray(arr) ? arr : [])].sort((a, b) => callTs(b) - callTs(a)), []);
+    const sortUsers = useCallback((arr: unknown[]) =>
+        [...(Array.isArray(arr) ? arr : [])].sort((a, b) => userTs(b) - userTs(a)), []);
 
     const [liveCalls, setLiveCalls] = useState<unknown[]>(
         sortCalls(tokenCalls).slice(0, 100),
