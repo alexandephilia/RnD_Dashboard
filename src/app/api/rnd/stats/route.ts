@@ -25,27 +25,38 @@ export async function GET() {
                 ],
             };
 
+            // Filter to exclude test tokens
+            const excludeTestTokens = { token_address: { $not: /^test_/i } };
+            const lastWindowQueryWithFilter = {
+                $and: [lastWindowQuery, excludeTestTokens]
+            };
+
             const [groupsArr, tokensArr, usersCount, latestDoc, calls1h, calls24h, groups24hArr, tokens24hArr, users24h, callsTotal] = await Promise.all([
-                callsCol.distinct("group_id"),
-                callsCol.distinct("token_address"),
+                callsCol.distinct("group_id", excludeTestTokens),
+                callsCol.distinct("token_address", excludeTestTokens),
                 usersCol.countDocuments({}),
-                callsCol.find({}).sort({ last_updated: -1, updatedAt: -1 }).limit(1).toArray(),
+                callsCol.find(excludeTestTokens).sort({ last_updated: -1, updatedAt: -1 }).limit(1).toArray(),
                 (async () => {
                     const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
                     return callsCol.countDocuments({
-                        $or: [
-                            { updatedAt: { $gte: hourAgo } },
-                            { last_updated: { $gte: hourAgo } },
-                            { createdAt: { $gte: hourAgo } },
-                            { "first_poster.posted_at": { $gte: hourAgo } },
-                        ],
+                        $and: [
+                            excludeTestTokens,
+                            {
+                                $or: [
+                                    { updatedAt: { $gte: hourAgo } },
+                                    { last_updated: { $gte: hourAgo } },
+                                    { createdAt: { $gte: hourAgo } },
+                                    { "first_poster.posted_at": { $gte: hourAgo } },
+                                ],
+                            }
+                        ]
                     });
                 })(),
-                (async () => callsCol.countDocuments(lastWindowQuery))(),
-                callsCol.distinct("group_id", lastWindowQuery),
-                callsCol.distinct("token_address", lastWindowQuery),
+                (async () => callsCol.countDocuments(lastWindowQueryWithFilter))(),
+                callsCol.distinct("group_id", lastWindowQueryWithFilter),
+                callsCol.distinct("token_address", lastWindowQueryWithFilter),
                 usersCol.countDocuments({ $or: [{ updatedAt: { $gte: dayAgo } }, { createdAt: { $gte: dayAgo } }] }),
-                callsCol.countDocuments({}),
+                callsCol.countDocuments(excludeTestTokens),
             ]);
 
             const lastDoc = latestDoc[0];
