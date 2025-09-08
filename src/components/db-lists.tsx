@@ -1,13 +1,15 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
     Sheet,
     SheetContent,
     SheetHeader,
     SheetTitle,
 } from "@/components/ui/sheet";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { CheckIcon, CopyIcon } from "lucide-react";
 
 type Props = {
     tokenCalls: unknown[];
@@ -19,6 +21,7 @@ export function DbLists({ tokenCalls, users }: Props) {
     const [selected, setSelected] = useState<{ title: string; data: unknown } | null>(
         null,
     );
+    const [copied, setCopied] = useState(false);
 
     // Helpers to consistently order lists newest-first
     const toMillis = (v: unknown): number => {
@@ -103,6 +106,22 @@ export function DbLists({ tokenCalls, users }: Props) {
         };
     }, [sortUsers]);
 
+    const jsonString = useMemo(
+        () => (selected ? JSON.stringify(selected.data, null, 2) : ""),
+        [selected],
+    );
+
+    const onCopy = async () => {
+        if (!jsonString) return;
+        try {
+            await navigator.clipboard.writeText(jsonString);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+        } catch {
+            // no-op
+        }
+    };
+
     return (
         <>
             <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2">
@@ -175,9 +194,31 @@ export function DbLists({ tokenCalls, users }: Props) {
                         <SheetTitle>{selected?.title ?? "Details"}</SheetTitle>
                     </SheetHeader>
                     <div className="p-4 pt-0">
-                        <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 max-h-[70vh] overflow-auto">
+                        <div className="relative rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 max-h-[70vh] overflow-auto">
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={onCopy}
+                                disabled={!jsonString}
+                                aria-label={copied ? "Copied JSON" : "Copy JSON"}
+                                title={copied ? "Copied" : "Copy JSON"}
+                                className="absolute top-2 right-2 h-7 px-2"
+                            >
+                                {copied ? (
+                                    <>
+                                        <CheckIcon size={14} />
+                                        <span className="hidden sm:inline">Copied</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <CopyIcon size={14} />
+                                        <span className="hidden sm:inline">Copy</span>
+                                    </>
+                                )}
+                            </Button>
                             <pre className="text-xs md:text-sm font-mono whitespace-pre-wrap break-words leading-5">
-                                {selected ? JSON.stringify(selected.data, null, 2) : ""}
+                                {jsonString}
                             </pre>
                         </div>
                     </div>
