@@ -1,15 +1,15 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
     Sheet,
     SheetContent,
     SheetHeader,
     SheetTitle,
 } from "@/components/ui/sheet";
-import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckIcon, CopyIcon } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type Props = {
     tokenCalls: unknown[];
@@ -131,21 +131,27 @@ export function DbLists({ tokenCalls, users }: Props) {
                         <span className="text-muted-foreground/60 text-sm">Latest Events</span>
                     </CardHeader>
                     <CardContent>
-                        <div className="rounded-md border bg-muted/20 p-3 pb-0 max-h-96 overflow-auto">
+                        <div className="relative rounded-md border bg-muted/20 p-3 pb-0 max-h-96 overflow-auto">
+                            {/* Fixed gradient overlays for the entire container */}
+                            <div className="absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-background via-background/95 via-background/85 via-background/70 via-background/50 via-background/30 via-background/15 to-transparent pointer-events-none z-20" />
+                            <div className="absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-background via-background/95 via-background/85 via-background/70 via-background/50 via-background/30 via-background/15 to-transparent pointer-events-none z-20" />
+
                             {liveCalls?.length ? (
                                 <ul className="space-y-2">
                                     {liveCalls.map((item, idx) => (
                                         <li
                                             key={idx}
-                                            className="overflow-x-auto cursor-pointer"
+                                            className="cursor-pointer"
                                             onClick={() => {
                                                 setSelected({ title: "Token Call", data: item });
                                                 setOpen(true);
                                             }}
                                         >
-                                            <code className="block min-w-full w-max text-xs font-mono whitespace-nowrap p-2 rounded-md border border-yellow-500/30 bg-yellow-500/10 hover:bg-yellow-500/15 transition-colors">
-                                                {JSON.stringify(item)}
-                                            </code>
+                                            <div className="overflow-x-auto">
+                                                <code className="block min-w-full w-max text-xs font-mono whitespace-nowrap p-2 rounded-md border border-yellow-500/30 bg-yellow-500/10 hover:bg-yellow-500/15 transition-colors">
+                                                    {JSON.stringify(item)}
+                                                </code>
+                                            </div>
                                         </li>
                                     ))}
                                 </ul>
@@ -162,21 +168,27 @@ export function DbLists({ tokenCalls, users }: Props) {
                         <span className="text-muted-foreground/60 text-sm">Latest Users</span>
                     </CardHeader>
                     <CardContent>
-                        <div className="rounded-md border bg-muted/20 p-3 pb-0 max-h-96 overflow-auto">
+                        <div className="relative rounded-md border bg-muted/20 p-3 pb-0 max-h-96 overflow-auto">
+                            {/* Fixed gradient overlays for the entire container */}
+                            <div className="absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-background via-background/95 via-background/85 via-background/70 via-background/50 via-background/30 via-background/15 to-transparent pointer-events-none z-20" />
+                            <div className="absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-background via-background/95 via-background/85 via-background/70 via-background/50 via-background/30 via-background/15 to-transparent pointer-events-none z-20" />
+
                             {liveUsers?.length ? (
                                 <ul className="space-y-2">
                                     {liveUsers.map((item, idx) => (
                                         <li
                                             key={idx}
-                                            className="overflow-x-auto cursor-pointer"
+                                            className="cursor-pointer"
                                             onClick={() => {
                                                 setSelected({ title: "User", data: item });
                                                 setOpen(true);
                                             }}
                                         >
-                                            <code className="block min-w-full w-max text-xs font-mono whitespace-nowrap p-2 rounded-md border border-yellow-500/30 bg-yellow-500/10 hover:bg-yellow-500/15 transition-colors">
-                                                {JSON.stringify(item)}
-                                            </code>
+                                            <div className="overflow-x-auto">
+                                                <code className="block min-w-full w-max text-xs font-mono whitespace-nowrap p-2 rounded-md border border-yellow-500/30 bg-yellow-500/10 hover:bg-yellow-500/15 transition-colors">
+                                                    {JSON.stringify(item)}
+                                                </code>
+                                            </div>
                                         </li>
                                     ))}
                                 </ul>
@@ -203,7 +215,7 @@ export function DbLists({ tokenCalls, users }: Props) {
                                 disabled={!jsonString}
                                 aria-label={copied ? "Copied JSON" : "Copy JSON"}
                                 title={copied ? "Copied" : "Copy JSON"}
-                                className="absolute top-2 right-2 h-7 px-2"
+                                className="absolute top-2 right-2 h-7 px-2 bg-yellow-500/10 hover:bg-yellow-500/15 border border-yellow-500/40"
                             >
                                 {copied ? (
                                     <>
