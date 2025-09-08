@@ -5,44 +5,13 @@ import type { Document, Filter } from "mongodb";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-    const debugInfo: {
-        timestamp: string;
-        source: string;
-        attempts: string[];
-        env: {
-            hasPublicUrl: boolean;
-            hasInternalUrl: boolean;
-            nodeEnv: string | undefined;
-            vercel: string | undefined;
-        };
-        success?: boolean;
-        counts?: {
-            groups: number;
-            tokens: number;
-            users: number;
-            totalCalls: number;
-        };
-        mongoError?: string;
-    } = {
-        timestamp: new Date().toISOString(),
-        source: "unknown",
-        attempts: [],
-        env: {
-            hasPublicUrl: Boolean(process.env.MONGO_PUBLIC_URL),
-            hasInternalUrl: Boolean(process.env.MONGO_URL),
-            nodeEnv: process.env.NODE_ENV,
-            vercel: process.env.VERCEL
-        }
-    };
+
 
     // Prefer Mongo if configured
     try {
         if (process.env.MONGO_PUBLIC_URL || process.env.MONGO_URL) {
-            debugInfo.attempts.push("MongoDB URLs found, attempting connection...");
-            const { dbName, tokenCalls, users } = getDbAndCollections();
-            debugInfo.attempts.push(`DB config: dbName=${dbName}, tokenCalls=${tokenCalls}, users=${users}`);
             const client = await getMongoClient();
-            debugInfo.attempts.push("MongoDB client connected successfully");
+            const { dbName, tokenCalls, users } = getDbAndCollections();
             const callsCol = client.db(dbName).collection(tokenCalls);
             const usersCol = client.db(dbName).collection(users);
 
@@ -87,16 +56,6 @@ export async function GET() {
                 lastDoc?.first_poster?.posted_at ||
                 null;
 
-            debugInfo.source = "mongodb";
-            debugInfo.success = true;
-            debugInfo.attempts.push("Successfully retrieved stats from MongoDB");
-            debugInfo.counts = {
-                groups: groupsArr.filter(Boolean).length,
-                tokens: tokensArr.filter(Boolean).length,
-                users: usersCount,
-                totalCalls: callsTotal
-            };
-
             return Response.json(
                 {
                     group_count: groupsArr.filter(Boolean).length,
@@ -109,21 +68,14 @@ export async function GET() {
                     calls_total: callsTotal,
                     groups_24h: groups24hArr.filter(Boolean).length,
                     tokens_24h: tokens24hArr.filter(Boolean).length,
-                    _debug: debugInfo
                 },
                 { headers: { "Cache-Control": "no-store" } },
             );
         }
     } catch (error) {
         console.error("MongoDB error in stats:", error);
-        debugInfo.attempts.push(`MongoDB error: ${error instanceof Error ? error.message : String(error)}`);
-        debugInfo.mongoError = error instanceof Error ? error.message : String(error);
-        debugInfo.source = "mongodb-failed";
-        // fall through
+        // fall through to Bot API
     }
-
-    // If we reach here, MongoDB failed, try Bot API
-    debugInfo.attempts.push("Trying Bot API fallback...");
     const { base, token, paths } = getBotConfig();
     if (!base) {
         return Response.json(
@@ -141,28 +93,13 @@ export async function GET() {
     const text = await res.text();
     try {
         const json = JSON.parse(text);
-        debugInfo.source = "bot-api";
-        debugInfo.success = true;
-        debugInfo.attempts.push(`Bot API success: ${res.status}`);
-
-        return Response.json({
-            ...json,
-            _debug: debugInfo
-        }, {
+        return Response.json(json, {
             headers: { "Cache-Control": "no-store" },
             status: res.status,
         });
     } catch {
-        debugInfo.source = "bot-api-failed";
-        debugInfo.success = false;
-        debugInfo.attempts.push(`Bot API JSON parse error: ${text.slice(0, 100)}`);
-
         return Response.json(
-            {
-                error: "Invalid JSON from upstream",
-                upstream: text.slice(0, 300),
-                _debug: debugInfo
-            },
+            { error: "Invalid JSON from upstream", upstream: text.slice(0, 300) },
             { status: 502 },
         );
     }

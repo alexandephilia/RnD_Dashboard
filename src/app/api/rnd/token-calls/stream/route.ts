@@ -1,44 +1,69 @@
+import { getBotConfig } from "@/lib/config";
+import { getDbAndCollections, getMongoClient } from "@/server/db/mongo";
+
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-    // Create a mock SSE stream
     const encoder = new TextEncoder();
 
     const stream = new ReadableStream({
-        start(controller) {
-            // Send initial mock data
-            const mockData = {
-                _id: `token_${Date.now()}`,
-                token_address: `0x${Math.random().toString(16).substr(2, 40)}`,
-                symbol: `TOKEN${Math.floor(Math.random() * 1000)}`,
-                name: `Live Token ${Math.floor(Math.random() * 100)}`,
-                market_cap: Math.floor(Math.random() * 10000000),
-                price: Math.random() * 100,
-                last_updated: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
+        async start(controller) {
+            let lastTimestamp = new Date();
+
+            const sendLatestData = async () => {
+                try {
+                    // Try MongoDB first
+                    if (process.env.MONGO_PUBLIC_URL || process.env.MONGO_URL) {
+                        const client = await getMongoClient();
+                        const { dbName, tokenCalls } = getDbAndCollections();
+                        const col = client.db(dbName).collection(tokenCalls);
+
+                        const latestDoc = await col
+                            .findOne(
+                                {
+                                    $or: [
+                                        { updatedAt: { $gte: lastTimestamp } },
+                                        { last_updated: { $gte: lastTimestamp } }
+                                    ]
+                                },
+                                { sort: { updatedAt: -1, last_updated: -1 } }
+                            );
+
+                        if (latestDoc) {
+                            controller.enqueue(encoder.encode(`data: ${JSON.stringify(latestDoc)}\n\n`));
+                            lastTimestamp = latestDoc.updatedAt || latestDoc.last_updated || new Date();
+                            return;
+                        }
+                    }
+
+                    // Fallback to Bot API
+                    const { base, token, paths } = getBotConfig();
+                    if (base) {
+                        const url = new URL(paths.sse, base).toString();
+                        const response = await fetch(url, {
+                            headers: {
+                                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                            },
+                        });
+
+                        if (response.ok && response.body) {
+                            const reader = response.body.getReader();
+                            const { value } = await reader.read();
+                            if (value) {
+                                controller.enqueue(value);
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error("SSE stream error:", error);
+                }
             };
 
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify(mockData)}\n\n`));
+            // Send initial data
+            await sendLatestData();
 
             // Send periodic updates
-            const interval = setInterval(() => {
-                const newMockData = {
-                    _id: `token_${Date.now()}`,
-                    token_address: `0x${Math.random().toString(16).substr(2, 40)}`,
-                    symbol: `TOKEN${Math.floor(Math.random() * 1000)}`,
-                    name: `Live Token ${Math.floor(Math.random() * 100)}`,
-                    market_cap: Math.floor(Math.random() * 10000000),
-                    price: Math.random() * 100,
-                    last_updated: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
-                };
-
-                try {
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify(newMockData)}\n\n`));
-                } catch {
-                    clearInterval(interval);
-                }
-            }, 5000); // Send new data every 5 seconds
+            const interval = setInterval(sendLatestData, 5000);
 
             // Clean up on close
             setTimeout(() => {
