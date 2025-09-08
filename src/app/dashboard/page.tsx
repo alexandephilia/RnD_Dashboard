@@ -23,6 +23,9 @@ import {
 } from "@/components/ui/sidebar";
 import UserDropdown from "@/components/user-dropdown";
 import { RiScanLine } from "@remixicon/react";
+import { Press_Start_2P } from "next/font/google";
+
+const pressStart = Press_Start_2P({ weight: "400", subsets: ["latin"] });
 
 import { StatsLive } from "@/components/stats-live";
 import { getDbAndCollections, getMongoClient } from "@/server/db/mongo";
@@ -283,7 +286,7 @@ export default async function Page() {
                     {/* Page intro */}
                     <div className="flex items-center justify-between gap-4">
                         <div className="space-y-1">
-                            <h1 className="text-2xl font-semibold">Hey, {adminName}!</h1>
+                            <h1 className={`text-2xl font-semibold ${pressStart.className}`}>Hey, {adminName}!</h1>
                             <p className="text-sm text-muted-foreground">
                                 Here&rsquo;s an overview of your data. Choose a database to explore.
                             </p>
