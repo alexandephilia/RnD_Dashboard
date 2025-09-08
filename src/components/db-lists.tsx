@@ -54,42 +54,34 @@ export function DbLists({ tokenCalls, users }: Props) {
         sortUsers(users).slice(0, 100),
     );
 
-    // Subscribe to SSE for token calls; fallback to polling if SSE fails
+    // Use polling instead of SSE to avoid Vercel timeout issues
     useEffect(() => {
         let closed = false;
-        try {
-            const es = new EventSource("/api/rnd/token-calls/stream");
-            es.onmessage = (e) => {
-                try {
-                    const obj = JSON.parse(e.data);
-                    setLiveCalls((prev) => sortCalls([obj, ...prev]).slice(0, 100));
-                } catch {
-                    // ignore non-JSON lines
-                }
-            };
-            es.onerror = () => {
-                es.close();
-            };
-            return () => {
-                closed = true;
-                es.close();
-            };
-        } catch {
-            // ignore
-        }
-        // polling fallback
-        const id = setInterval(async () => {
+
+        const fetchTokenCalls = async () => {
             if (closed) return;
             try {
                 const res = await fetch("/api/rnd/token-calls?limit=100", { cache: "no-store" });
                 if (!res.ok) return;
                 const data = await res.json();
-                if (Array.isArray(data)) setLiveCalls(sortCalls(data).slice(0, 100));
+                if (Array.isArray(data)) {
+                    setLiveCalls(sortCalls(data).slice(0, 100));
+                }
             } catch {
                 // ignore
             }
-        }, 30000);
-        return () => clearInterval(id);
+        };
+
+        // Initial fetch
+        fetchTokenCalls();
+
+        // Poll every 10 seconds for updates
+        const id = setInterval(fetchTokenCalls, 10000);
+
+        return () => {
+            closed = true;
+            clearInterval(id);
+        };
     }, [sortCalls]);
 
     // Poll users regularly from proxy
