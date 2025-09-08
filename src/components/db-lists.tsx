@@ -173,9 +173,9 @@ export function DbLists({ tokenCalls, users }: Props) {
                                 disabled={!liveCalls?.length}
                                 aria-label="Download Token Calls as CSV"
                                 title="Download as CSV"
-                                className="h-4 w-4 p-0 hover:bg-muted"
+                                className="h-4 w-4 p-0 hover:bg-muted cursor-pointer"
                             >   
-                                <DownloadIcon className="!w-3 !h-3" />
+                                <DownloadIcon className="!w-3 !h-3 text-yellow-500" />
                             </Button>
                         </div>
                         <span className="text-muted-foreground/60 text-sm">Latest Events</span>
@@ -224,9 +224,9 @@ export function DbLists({ tokenCalls, users }: Props) {
                                 disabled={!liveUsers?.length}
                                 aria-label="Download Users as CSV"
                                 title="Download as CSV"
-                                className="h-4 w-4 p-0 hover:bg-muted"
+                                className="h-4 w-4 p-0 hover:bg-muted cursor-pointer"
                             >
-                            <DownloadIcon className="!w-3 !h-3" />
+                            <DownloadIcon className="!w-3 !h-3 text-yellow-500" />
                             </Button>
                         </div>
                         <span className="text-muted-foreground/60 text-sm">Latest Users</span>
