@@ -12,3 +12,13 @@
     overflow: visible;
     z-index: 0;
 }
+
+@media (max-width: 768px) {
+    .pixel-blast-container {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+    }
+}
