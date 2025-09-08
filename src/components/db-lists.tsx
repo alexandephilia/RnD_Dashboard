@@ -8,7 +8,7 @@ import {
     SheetHeader,
     SheetTitle,
 } from "@/components/ui/sheet";
-import { CheckIcon, CopyIcon } from "lucide-react";
+import { CheckIcon, CopyIcon, DownloadIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type Props = {
@@ -122,12 +122,62 @@ export function DbLists({ tokenCalls, users }: Props) {
         }
     };
 
+    const downloadCSV = (data: unknown[], filename: string) => {
+        if (!data.length) return;
+
+        // Get all unique keys from all objects
+        const allKeys = new Set<string>();
+        data.forEach(item => {
+            if (typeof item === 'object' && item !== null) {
+                Object.keys(item as Record<string, unknown>).forEach(key => allKeys.add(key));
+            }
+        });
+
+        const headers = Array.from(allKeys);
+        const csvContent = [
+            headers.join(','),
+            ...data.map(item => {
+                const obj = item as Record<string, unknown>;
+                return headers.map(header => {
+                    const value = obj[header];
+                    if (value === null || value === undefined) return '';
+                    if (typeof value === 'object') return JSON.stringify(value).replace(/"/g, '""');
+                    return String(value).replace(/"/g, '""');
+                }).map(field => `"${field}"`).join(',');
+            })
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     return (
         <>
             <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2">
                 <Card>
                     <CardHeader className="flex-row items-center justify-between">
-                        <CardTitle>Token Calls</CardTitle>
+                        <div className="flex items-center gap-2">
+                            <CardTitle>Token Calls</CardTitle>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => downloadCSV(liveCalls, 'token-calls.csv')}
+                                disabled={!liveCalls?.length}
+                                aria-label="Download Token Calls as CSV"
+                                title="Download as CSV"
+                                className="h-5 w-5 p-0 hover:bg-muted"
+                            >
+                                <DownloadIcon size={10} />
+                            </Button>
+                        </div>
                         <span className="text-muted-foreground/60 text-sm">Latest Events</span>
                     </CardHeader>
                     <CardContent>
@@ -164,7 +214,21 @@ export function DbLists({ tokenCalls, users }: Props) {
 
                 <Card>
                     <CardHeader className="flex-row items-center justify-between">
-                        <CardTitle>Users</CardTitle>
+                        <div className="flex items-center gap-2">
+                            <CardTitle>Users</CardTitle>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => downloadCSV(liveUsers, 'users.csv')}
+                                disabled={!liveUsers?.length}
+                                aria-label="Download Users as CSV"
+                                title="Download as CSV"
+                                className="h-5 w-5 p-0 hover:bg-muted"
+                            >
+                                <DownloadIcon size={10} />
+                            </Button>
+                        </div>
                         <span className="text-muted-foreground/60 text-sm">Latest Users</span>
                     </CardHeader>
                     <CardContent>
@@ -206,30 +270,32 @@ export function DbLists({ tokenCalls, users }: Props) {
                         <SheetTitle>{selected?.title ?? "Details"}</SheetTitle>
                     </SheetHeader>
                     <div className="p-4 pt-0">
-                        <div className="relative rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 max-h-[70vh] overflow-auto">
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={onCopy}
-                                disabled={!jsonString}
-                                aria-label={copied ? "Copied JSON" : "Copy JSON"}
-                                title={copied ? "Copied" : "Copy JSON"}
-                                className="absolute top-2 right-2 h-7 px-2 bg-yellow-500/10 hover:bg-yellow-500/15 border border-yellow-500/40"
-                            >
-                                {copied ? (
-                                    <>
-                                        <CheckIcon size={14} />
-                                        <span className="hidden sm:inline">Copied</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <CopyIcon size={14} />
-                                        <span className="hidden sm:inline">Copy</span>
-                                    </>
-                                )}
-                            </Button>
-                            <pre className="text-xs md:text-sm font-mono whitespace-pre-wrap break-words leading-5">
+                        <div className="relative rounded-lg border border-yellow-500/30 bg-yellow-500/10 max-h-[70vh] overflow-auto">
+                            <div className="sticky top-0 right-0 flex justify-end p-2 pb-0 z-10">
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={onCopy}
+                                    disabled={!jsonString}
+                                    aria-label={copied ? "Copied JSON" : "Copy JSON"}
+                                    title={copied ? "Copied" : "Copy JSON"}
+                                    className="h-7 px-2 bg-yellow-500/10 hover:bg-yellow-500/15 border border-yellow-500/40 backdrop-blur-sm"
+                                >
+                                    {copied ? (
+                                        <>
+                                            <CheckIcon size={14} />
+                                            <span className="hidden sm:inline">Copied</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CopyIcon size={14} />
+                                            <span className="hidden sm:inline">Copy</span>
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
+                            <pre className="text-xs md:text-sm font-mono whitespace-pre-wrap break-words leading-5 p-3 pt-0">
                                 {jsonString}
                             </pre>
                         </div>
