@@ -5,7 +5,25 @@ import type { Document, Filter } from "mongodb";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-    const debugInfo: any = {
+    const debugInfo: {
+        timestamp: string;
+        source: string;
+        attempts: string[];
+        env: {
+            hasPublicUrl: boolean;
+            hasInternalUrl: boolean;
+            nodeEnv: string | undefined;
+            vercel: string | undefined;
+        };
+        success?: boolean;
+        counts?: {
+            groups: number;
+            tokens: number;
+            users: number;
+            totalCalls: number;
+        };
+        mongoError?: string;
+    } = {
         timestamp: new Date().toISOString(),
         source: "unknown",
         attempts: [],
