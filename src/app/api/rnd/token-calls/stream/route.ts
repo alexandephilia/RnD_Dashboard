@@ -1,16 +1,22 @@
-import { getBotConfig } from "@/lib/config";
 import { getDbAndCollections, getMongoClient } from "@/server/db/mongo";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 30; // Limit to 30 seconds max
 
-export async function GET() {
+export async function GET(request: Request) {
     const encoder = new TextEncoder();
+    const url = new URL(request.url);
+    const since = url.searchParams.get('since');
+    const limit = Math.min(10, Number(url.searchParams.get('limit') || 5));
 
     const stream = new ReadableStream({
         async start(controller) {
-            let lastTimestamp = new Date();
+            let sent = 0;
+            const maxMessages = limit;
+            const startTime = Date.now();
+            const maxDuration = 25000; // 25 seconds to stay under Vercel limit
 
-            const sendLatestData = async () => {
+            const sendData = async () => {
                 try {
                     // Try MongoDB first
                     if (process.env.MONGO_PUBLIC_URL || process.env.MONGO_URL) {
@@ -18,57 +24,62 @@ export async function GET() {
                         const { dbName, tokenCalls } = getDbAndCollections();
                         const col = client.db(dbName).collection(tokenCalls);
 
-                        const latestDoc = await col
-                            .findOne(
-                                {
-                                    $or: [
-                                        { updatedAt: { $gte: lastTimestamp } },
-                                        { last_updated: { $gte: lastTimestamp } }
-                                    ]
-                                },
-                                { sort: { updatedAt: -1, last_updated: -1 } }
-                            );
+                        const query = since ? {
+                            $or: [
+                                { updatedAt: { $gte: new Date(since) } },
+                                { last_updated: { $gte: new Date(since) } }
+                            ]
+                        } : {};
 
-                        if (latestDoc) {
-                            controller.enqueue(encoder.encode(`data: ${JSON.stringify(latestDoc)}\n\n`));
-                            lastTimestamp = latestDoc.updatedAt || latestDoc.last_updated || new Date();
+                        const docs = await col
+                            .find(query)
+                            .sort({ updatedAt: -1, last_updated: -1 })
+                            .limit(maxMessages - sent)
+                            .toArray();
+
+                        for (const doc of docs) {
+                            if (sent >= maxMessages || Date.now() - startTime > maxDuration) {
+                                break;
+                            }
+                            controller.enqueue(encoder.encode(`data: ${JSON.stringify(doc)}\n\n`));
+                            sent++;
+                        }
+
+                        if (sent >= maxMessages || Date.now() - startTime > maxDuration) {
+                            controller.close();
                             return;
                         }
                     }
 
-                    // Fallback to Bot API
-                    const { base, token, paths } = getBotConfig();
-                    if (base) {
-                        const url = new URL(paths.sse, base).toString();
-                        const response = await fetch(url, {
-                            headers: {
-                                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                            },
-                        });
-
-                        if (response.ok && response.body) {
-                            const reader = response.body.getReader();
-                            const { value } = await reader.read();
-                            if (value) {
-                                controller.enqueue(value);
-                            }
-                        }
+                    // If no new data, send heartbeat
+                    if (sent === 0) {
+                        controller.enqueue(encoder.encode(`data: {"type":"heartbeat","timestamp":"${new Date().toISOString()}"}\n\n`));
                     }
+
                 } catch (error) {
                     console.error("SSE stream error:", error);
+                    controller.enqueue(encoder.encode(`data: {"type":"error","message":"${error}"}\n\n`));
                 }
             };
 
             // Send initial data
-            await sendLatestData();
+            await sendData();
 
-            // Send periodic updates
-            const interval = setInterval(sendLatestData, 5000);
+            // Send updates every 3 seconds, but stop after max duration or max messages
+            const interval = setInterval(async () => {
+                if (sent >= maxMessages || Date.now() - startTime > maxDuration) {
+                    clearInterval(interval);
+                    controller.close();
+                    return;
+                }
+                await sendData();
+            }, 3000);
 
-            // Clean up on close
+            // Cleanup after max duration
             setTimeout(() => {
                 clearInterval(interval);
-            }, 300000); // Stop after 5 minutes
+                controller.close();
+            }, maxDuration);
         }
     });
 
@@ -77,6 +88,8 @@ export async function GET() {
             "Content-Type": "text/event-stream",
             "Cache-Control": "no-cache, no-transform",
             "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Cache-Control",
         },
     });
 }
