@@ -25,10 +25,12 @@ export async function GET() {
                 ],
             };
 
-            // Filter to exclude test tokens
-            const excludeTestTokens = { token_address: { $not: /^test_/i } };
-            const lastWindowQueryWithFilter = {
-                $and: [lastWindowQuery, excludeTestTokens]
+            // Filter to exclude test tokens from both possible field names
+            const excludeTestTokens = {
+                $nor: [
+                    { token: /^test_/i },           // Exclude if token field starts with "test_"
+                    { token_address: /^test_/i }    // Exclude if token_address field starts with "test_"
+                ]
             };
 
             const [groupsArr, tokensArr, usersCount, latestDoc, calls1h, calls24h, groups24hArr, tokens24hArr, users24h, callsTotal] = await Promise.all([
@@ -52,9 +54,9 @@ export async function GET() {
                         ]
                     });
                 })(),
-                (async () => callsCol.countDocuments(lastWindowQueryWithFilter))(),
-                callsCol.distinct("group_id", lastWindowQueryWithFilter),
-                callsCol.distinct("token_address", lastWindowQueryWithFilter),
+                (async () => callsCol.countDocuments({ $and: [lastWindowQuery, excludeTestTokens] }))(),
+                callsCol.distinct("group_id", { $and: [lastWindowQuery, excludeTestTokens] }),
+                callsCol.distinct("token_address", { $and: [lastWindowQuery, excludeTestTokens] }),
                 usersCol.countDocuments({ $or: [{ updatedAt: { $gte: dayAgo } }, { createdAt: { $gte: dayAgo } }] }),
                 callsCol.countDocuments(excludeTestTokens),
             ]);

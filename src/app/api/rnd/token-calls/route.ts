@@ -17,7 +17,10 @@ export async function GET(req: NextRequest) {
             const col = client.db(dbName).collection(tokenCalls);
             const docs = await col
                 .find({
-                    token_address: { $not: /^test_/i } // Exclude tokens starting with "test_"
+                    $nor: [
+                        { token: /^test_/i },           // Exclude if token field starts with "test_"
+                        { token_address: /^test_/i }    // Exclude if token_address field starts with "test_"
+                    ]
                 })
                 .sort({ last_updated: -1, updatedAt: -1 })
                 .limit(limit)
