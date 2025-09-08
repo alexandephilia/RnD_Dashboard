@@ -83,7 +83,7 @@ export function SystemStatus({ tokenCalls, users }: Props) {
 
     const color =
         details.status === "operational"
-            ? "yellow"
+            ? "green"
             : details.status === "degraded"
                 ? "amber"
                 : "red";
@@ -176,7 +176,7 @@ export function SystemStatus({ tokenCalls, users }: Props) {
                     <span
                         className={cn(
                             "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
-                            color === "yellow" && "bg-yellow-500",
+                            color === "green" && "bg-green-500",
                             color === "amber" && "bg-amber-500",
                             color === "red" && "bg-red-500",
                         )}
@@ -184,7 +184,7 @@ export function SystemStatus({ tokenCalls, users }: Props) {
                     <span
                         className={cn(
                             "relative inline-flex h-2.5 w-2.5 rounded-full",
-                            color === "yellow" && "bg-yellow-500",
+                            color === "green" && "bg-green-500",
                             color === "amber" && "bg-amber-500",
                             color === "red" && "bg-red-500",
                         )}
@@ -193,7 +193,7 @@ export function SystemStatus({ tokenCalls, users }: Props) {
                 <span
                     className={cn(
                         "text-xs font-medium",
-                        color === "yellow" && "text-yellow-700",
+                        color === "green" && "text-green-700",
                         color === "amber" && "text-amber-700",
                         color === "red" && "text-red-600",
                     )}
@@ -218,7 +218,7 @@ export function SystemStatus({ tokenCalls, users }: Props) {
                     <span
                         className={cn(
                             "inline-flex h-2.5 w-2.5 rounded-full",
-                            color === "yellow" && "bg-yellow-500",
+                            color === "green" && "bg-green-500",
                             color === "amber" && "bg-amber-500",
                             color === "red" && "bg-red-500",
                         )}
