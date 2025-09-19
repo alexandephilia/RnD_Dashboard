@@ -50,5 +50,7 @@ export function getDbAndCollections() {
     // Default to "tokens" which matches Mongoose's pluralization for the Token model
     const tokenCalls = process.env.MONGO_COLLECTION_TOKEN_CALLS || "tokens";
     const users = process.env.MONGO_COLLECTION_USERS || "users";
-    return { dbName, tokenCalls, users } as const;
+    const groupMonthlyTokens =
+        process.env.MONGO_COLLECTION_GROUP_MONTHLY_TOKENS || "groupmonthlytokens";
+    return { dbName, tokenCalls, users, groupMonthlyTokens } as const;
 }

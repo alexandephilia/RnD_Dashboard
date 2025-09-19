@@ -110,20 +110,60 @@ async function getBotUsers() {
     return [] as unknown[];
 }
 
+async function getGroupMonthlyTokens() {
+    // 1) Query Mongo directly if configured
+    try {
+        if (process.env.MONGO_PUBLIC_URL || process.env.MONGO_URL || process.env.MONGODB_URI) {
+            const client = await getMongoClient();
+            const { dbName, groupMonthlyTokens } = getDbAndCollections();
+            const col = client.db(dbName).collection(groupMonthlyTokens);
+            const docs = await col
+                .find({})
+                .sort({ updatedAt: -1, last_updated: -1, createdAt: -1 })
+                .limit(500)
+                .toArray();
+            if (Array.isArray(docs)) return docs as unknown[];
+        }
+    } catch { }
+    // 2) Try local API proxy
+    try {
+        const res = await fetch("/api/rnd/group-monthly-tokens?limit=500", { cache: "no-store" });
+        if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data)) return data as unknown[];
+        }
+    } catch { }
+    // 3) Optional local fallback
+    const allowFallback =
+        process.env.USE_LOCAL_FALLBACK !== "false" && process.env.NODE_ENV !== "production";
+    if (allowFallback) {
+        try {
+            const file = await fs.readFile(
+                path.join(process.cwd(), "public", "data", "group-monthly-tokens.json"),
+                "utf-8",
+            );
+            return JSON.parse(file) as unknown[];
+        } catch { }
+    }
+    return [] as unknown[];
+}
+
 export default async function Page() {
     const cookieStore = await cookies();
     const adminNameRaw = (cookieStore.get("admin_name")?.value || "Admin").trim();
     const adminName = adminNameRaw
         ? adminNameRaw.charAt(0).toUpperCase() + adminNameRaw.slice(1)
         : "Admin";
-    const [tokenCalls, users] = await Promise.all([
+    const [tokenCalls, users, groupMonthly] = await Promise.all([
         getTokenCalls(),
         getBotUsers(),
+        getGroupMonthlyTokens(),
     ]);
 
     // Ensure client components receive plain JSON-serializable data
     const tokenCallsPlain: unknown[] = JSON.parse(JSON.stringify(tokenCalls));
     const usersPlain: unknown[] = JSON.parse(JSON.stringify(users));
+    const groupMonthlyPlain: unknown[] = JSON.parse(JSON.stringify(groupMonthly));
 
     // Derive dashboard stats for RnD_Bot monitoring
     const uniq = <T,>(arr: T[], key: (item: T) => unknown) =>
@@ -294,7 +334,7 @@ export default async function Page() {
                     </div>
                     {/* Numbers (24h, live-updated from /api/rnd/stats) */}
                     <StatsLive initial={stats} periodLabel={periodLabel} />
-                    <DbLists tokenCalls={tokenCallsPlain} users={usersPlain} />
+                    <DbLists tokenCalls={tokenCallsPlain} users={usersPlain} groupMonthlyTokens={groupMonthlyPlain} />
                 </div>
             </SidebarInset>
             <SystemStatus tokenCalls={tokenCallsPlain} users={usersPlain} />

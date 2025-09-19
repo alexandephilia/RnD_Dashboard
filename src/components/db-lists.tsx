@@ -14,9 +14,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 type Props = {
     tokenCalls: unknown[];
     users: unknown[];
+    groupMonthlyTokens: unknown[];
 };
 
-export function DbLists({ tokenCalls, users }: Props) {
+export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
     const [open, setOpen] = useState(false);
     const [selected, setSelected] = useState<{ title: string; data: unknown } | null>(
         null,
@@ -44,17 +45,28 @@ export function DbLists({ tokenCalls, users }: Props) {
         const obj = u as Record<string, unknown>;
         return toMillis(obj?.updatedAt ?? obj?.createdAt ?? obj?.joined_at);
     };
+    const groupMonthlyTs = (g: unknown): number => {
+        const obj = g as Record<string, unknown>;
+        return toMillis(
+            obj?.updatedAt ?? obj?.last_updated ?? obj?.createdAt ?? obj?.month,
+        );
+    };
 
     const sortCalls = useCallback((arr: unknown[]) =>
         [...(Array.isArray(arr) ? arr : [])].sort((a, b) => callTs(b) - callTs(a)), []);
     const sortUsers = useCallback((arr: unknown[]) =>
         [...(Array.isArray(arr) ? arr : [])].sort((a, b) => userTs(b) - userTs(a)), []);
+    const sortGroupMonthly = useCallback((arr: unknown[]) =>
+        [...(Array.isArray(arr) ? arr : [])].sort((a, b) => groupMonthlyTs(b) - groupMonthlyTs(a)), []);
 
     const [liveCalls, setLiveCalls] = useState<unknown[]>(
         sortCalls(tokenCalls).slice(0, 100),
     );
     const [liveUsers, setLiveUsers] = useState<unknown[]>(
         sortUsers(users).slice(0, 100),
+    );
+    const [liveGroupMonthly, setLiveGroupMonthly] = useState<unknown[]>(
+        sortGroupMonthly(groupMonthlyTokens).slice(0, 100),
     );
 
     // Use polling instead of SSE to avoid Vercel timeout issues
@@ -105,6 +117,25 @@ export function DbLists({ tokenCalls, users }: Props) {
             clearInterval(id);
         };
     }, [sortUsers]);
+
+    // Poll group monthly tokens regularly from proxy
+    useEffect(() => {
+        let active = true;
+        const load = async () => {
+            try {
+                const res = await fetch("/api/rnd/group-monthly-tokens?limit=100", { cache: "no-store" });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (active && Array.isArray(data)) setLiveGroupMonthly(sortGroupMonthly(data).slice(0, 100));
+            } catch { }
+        };
+        load();
+        const id = setInterval(load, 30000);
+        return () => {
+            active = false;
+            clearInterval(id);
+        };
+    }, [sortGroupMonthly]);
 
     const jsonString = useMemo(
         () => (selected ? JSON.stringify(selected.data, null, 2) : ""),
@@ -160,7 +191,7 @@ export function DbLists({ tokenCalls, users }: Props) {
 
     return (
         <>
-            <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2">
+            <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                 <Card>
                     <CardHeader className="flex-row items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -258,6 +289,57 @@ export function DbLists({ tokenCalls, users }: Props) {
                                 </ul>
                             ) : (
                                 <div className="text-sm text-muted-foreground">No users found.</div>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="flex-row items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <CardTitle>Group Monthly Tokens</CardTitle>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => downloadCSV(liveGroupMonthly, 'group-monthly-tokens.csv')}
+                                disabled={!liveGroupMonthly?.length}
+                                aria-label="Download Group Monthly Tokens as CSV"
+                                title="Download as CSV"
+                                className="h-4 w-4 p-0 hover:bg-muted cursor-pointer"
+                            >
+                                <DownloadIcon className="!w-3 !h-3 text-yellow-500" />
+                            </Button>
+                        </div>
+                        <span className="text-muted-foreground/60 text-sm">Latest Aggregates</span>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="relative rounded-md border bg-muted/20 p-3 pb-0 max-h-96 overflow-auto">
+                            {/* Fixed gradient overlays for the entire container */}
+                            <div className="absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-background via-background/95 via-background/85 via-background/70 via-background/50 via-background/30 via-background/15 to-transparent pointer-events-none z-20" />
+                            <div className="absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-background via-background/95 via-background/85 via-background/70 via-background/50 via-background/30 via-background/15 to-transparent pointer-events-none z-20" />
+
+                            {liveGroupMonthly?.length ? (
+                                <ul className="space-y-2">
+                                    {liveGroupMonthly.map((item, idx) => (
+                                        <li
+                                            key={idx}
+                                            className="cursor-pointer"
+                                            onClick={() => {
+                                                setSelected({ title: "Group Monthly", data: item });
+                                                setOpen(true);
+                                            }}
+                                        >
+                                            <div className="overflow-x-auto">
+                                                <code className="block min-w-full w-max text-xs font-mono whitespace-nowrap p-2 rounded-md border border-yellow-500/30 bg-yellow-500/10 hover:bg-yellow-500/15 transition-colors">
+                                                    {JSON.stringify(item)}
+                                                </code>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <div className="text-sm text-muted-foreground">No group monthly tokens found.</div>
                             )}
                         </div>
                     </CardContent>
