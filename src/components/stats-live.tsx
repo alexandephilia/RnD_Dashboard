@@ -8,7 +8,7 @@ type Stat = { title: string; value: string; change: Change; icon: React.ReactNod
 
 export function StatsLive({ initial, periodLabel, showChange = true }: { initial: Stat[]; periodLabel?: string; showChange?: boolean }) {
   const [stats, setStats] = React.useState<Stat[]>(initial);
-  const [lastValues, setLastValues] = React.useState<Record<string, number>>({});
+  const [_lastValues, setLastValues] = React.useState<Record<string, number>>({});
   const [sparklineHistory, setSparklineHistory] = React.useState<Record<string, number[]>>(() => {
     // Try to load from localStorage first
     if (typeof window !== "undefined") {
@@ -138,6 +138,7 @@ export function StatsLive({ initial, periodLabel, showChange = true }: { initial
       active = false;
       clearInterval(id);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return <StatsGrid stats={stats} periodLabel={periodLabel} showChange={showChange} />;

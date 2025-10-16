@@ -16,7 +16,7 @@ export function Sparkline({
   showAnomalies = true,
 }: SparklineProps) {
   const uniqueId = useId();
-  const { points, anomalyIndices, min, max, chartTop, chartBottom, chartHeight } = useMemo(() => {
+  const { points, anomalyIndices, min, max, chartBottom, chartHeight } = useMemo(() => {
     if (!data.length) return { points: "", anomalyIndices: [], min: 0, max: 0, chartTop: 0, chartBottom: height, chartHeight: height };
 
     const min = Math.min(...data);
@@ -46,7 +46,7 @@ export function Sparkline({
       if (showAnomalies && value > threshold && value > mean * 1.5) {
         anomalyIndices.push(0);
       }
-      return { points, anomalyIndices, min, max, chartTop, chartBottom, chartHeight };
+      return { points, anomalyIndices, min, max, chartBottom, chartHeight };
     }
 
     const points = data
@@ -63,7 +63,7 @@ export function Sparkline({
       })
       .join(" ");
 
-    return { points, anomalyIndices, min, max, chartTop, chartBottom, chartHeight };
+    return { points, anomalyIndices, min, max, chartBottom, chartHeight };
   }, [data, width, height, showAnomalies]);
 
   if (!data.length) {
