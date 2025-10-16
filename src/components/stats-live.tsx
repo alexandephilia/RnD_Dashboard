@@ -19,6 +19,17 @@ export function StatsLive({ initial, periodLabel, showChange = true }: { initial
   });
 
   React.useEffect(() => {
+    // Load persisted history (prevents reset on reload)
+    try {
+      const saved = localStorage.getItem("rnd_stats_sparkline_v1");
+      if (saved) {
+        const parsed = JSON.parse(saved) as Record<string, number[]>;
+        if (parsed && typeof parsed === "object") {
+          setSparklineHistory((prev) => ({ ...parsed, ...prev }));
+        }
+      }
+    } catch {}
+
     let active = true;
     const update = async () => {
       try {
@@ -82,6 +93,9 @@ export function StatsLive({ initial, periodLabel, showChange = true }: { initial
             }),
           );
           
+          try {
+            localStorage.setItem("rnd_stats_sparkline_v1", JSON.stringify(newHistory));
+          } catch {}
           return newHistory;
         });
       } catch {

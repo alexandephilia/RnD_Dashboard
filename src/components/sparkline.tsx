@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useId } from "react";
 
 interface SparklineProps {
   data: number[];
@@ -15,7 +15,7 @@ export function Sparkline({
   className = "",
   showAnomalies = true,
 }: SparklineProps) {
-  const uniqueId = useMemo(() => Math.random().toString(36).substr(2, 9), []);
+  const uniqueId = useId();
   const { points, anomalyIndices, min, max, chartTop, chartBottom, chartHeight } = useMemo(() => {
     if (!data.length) return { points: "", anomalyIndices: [], min: 0, max: 0, chartTop: 0, chartBottom: height, chartHeight: height };
 
@@ -36,6 +36,19 @@ export function Sparkline({
     const threshold = mean + 2 * stdDev; // 2 sigma threshold
 
     const anomalyIndices: number[] = [];
+
+    // Handle single-point case to avoid NaN x positions
+    if (data.length === 1) {
+      const value = data[0];
+      const y = chartBottom - ((value - min) / range) * chartHeight;
+      const points = `0,${y} ${width},${y}`; // draw a horizontal line across
+      // Single point can be considered an anomaly check
+      if (showAnomalies && value > threshold && value > mean * 1.5) {
+        anomalyIndices.push(0);
+      }
+      return { points, anomalyIndices, min, max, chartTop, chartBottom, chartHeight };
+    }
+
     const points = data
       .map((value, i) => {
         const x = (i / (data.length - 1)) * width;
