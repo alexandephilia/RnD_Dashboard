@@ -16,8 +16,8 @@ export function Sparkline({
   showAnomalies = true,
 }: SparklineProps) {
   const uniqueId = useMemo(() => Math.random().toString(36).substr(2, 9), []);
-  const { points, anomalyIndices, min, max, chartTop, chartBottom, chartHeight } = useMemo(() => {
-    if (!data.length) return { points: "", anomalyIndices: [], min: 0, max: 0, chartTop: 0, chartBottom: height, chartHeight: height };
+  const { points, anomalyIndices, min, max, chartBottom, chartHeight } = useMemo(() => {
+    if (!data.length) return { points: "", anomalyIndices: [], min: 0, max: 0, chartBottom: height, chartHeight: height };
 
     const min = Math.min(...data);
     const max = Math.max(...data);
@@ -50,7 +50,7 @@ export function Sparkline({
       })
       .join(" ");
 
-    return { points, anomalyIndices, min, max, chartTop, chartBottom, chartHeight };
+    return { points, anomalyIndices, min, max, chartBottom, chartHeight };
   }, [data, width, height, showAnomalies]);
 
   if (!data.length) {
@@ -82,8 +82,7 @@ export function Sparkline({
         <linearGradient id={`sparkline-fade-mask-${uniqueId}`} x1="0" x2="1" y1="0" y2="0">
           <stop offset="0%" stopColor="white" stopOpacity="0" />
           <stop offset="5%" stopColor="white" stopOpacity="1" />
-          <stop offset="95%" stopColor="white" stopOpacity="1" />
-          <stop offset="100%" stopColor="white" stopOpacity="0" />
+          <stop offset="100%" stopColor="white" stopOpacity="1" />
         </linearGradient>
         
         <mask id={`sparkline-mask-${uniqueId}`}>

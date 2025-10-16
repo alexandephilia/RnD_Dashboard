@@ -8,7 +8,7 @@ type Stat = { title: string; value: string; change: Change; icon: React.ReactNod
 
 export function StatsLive({ initial, periodLabel, showChange = true }: { initial: Stat[]; periodLabel?: string; showChange?: boolean }) {
   const [stats, setStats] = React.useState<Stat[]>(initial);
-  const [sparklineHistory, setSparklineHistory] = React.useState<Record<string, number[]>>(() => {
+  const [, setSparklineHistory] = React.useState<Record<string, number[]>>(() => {
     const seed: Record<string, number[]> = {};
     for (const it of initial) {
       if (it.sparklineData && it.sparklineData.length) {
@@ -32,39 +32,55 @@ export function StatsLive({ initial, periodLabel, showChange = true }: { initial
         };
 
         const maxPoints = 24;
-        
+
         // Update both history and stats together
         setSparklineHistory((prevHistory) => {
           const newHistory = { ...prevHistory };
-          
-          if (typeof s?.group_count === "number") {
-            newHistory["groups"] = [...(prevHistory["groups"] || []), s.group_count].slice(-maxPoints);
-          }
-          if (typeof s?.users_count === "number") {
-            newHistory["users"] = [...(prevHistory["users"] || []), s.users_count].slice(-maxPoints);
-          }
-          if (typeof s?.token_count === "number") {
-            newHistory["tokens"] = [...(prevHistory["tokens"] || []), s.token_count].slice(-maxPoints);
-          }
-          if (typeof s?.calls_total === "number") {
-            newHistory["token calls"] = [...(prevHistory["token calls"] || []), s.calls_total].slice(-maxPoints);
-          }
-          
+          const appendOrHold = (key: string, value?: number) => {
+            const prevSeries = prevHistory[key] || [];
+            if (typeof value === "number") {
+              newHistory[key] = [...prevSeries, value].slice(-maxPoints);
+            } else if (prevSeries.length) {
+              const last = prevSeries[prevSeries.length - 1];
+              if (typeof last === "number") {
+                newHistory[key] = [...prevSeries, last].slice(-maxPoints);
+              }
+            }
+            return newHistory[key] || prevSeries;
+          };
+
+          const groupsHistory = appendOrHold("groups", typeof s?.group_count === "number" ? s.group_count : undefined);
+          const usersHistory = appendOrHold("users", typeof s?.users_count === "number" ? s.users_count : undefined);
+          const tokensHistory = appendOrHold("tokens", typeof s?.token_count === "number" ? s.token_count : undefined);
+          const callsHistory = appendOrHold("token calls", typeof s?.calls_total === "number" ? s.calls_total : undefined);
+
           // Update stats with new history
           setStats((prev) =>
             prev.map((it) => {
               const t = it.title.toLowerCase();
-              if (t === "groups" && typeof s?.group_count === "number") {
-                const change = { value: pctUp(s?.groups_24h, s?.group_count), trend: "up" as const };
-                return { ...it, value: s.group_count.toLocaleString(), change, sparklineData: newHistory["groups"] };
+              if (t === "groups") {
+                const change =
+                  typeof s?.group_count === "number"
+                    ? { value: pctUp(s?.groups_24h, s?.group_count), trend: "up" as const }
+                    : it.change;
+                const value = typeof s?.group_count === "number" ? s.group_count.toLocaleString() : it.value;
+                return { ...it, value, change, sparklineData: groupsHistory };
               }
-              if (t === "users" && typeof s?.users_count === "number") {
-                const change = { value: pctUp(s?.users_24h, s?.users_count), trend: "up" as const };
-                return { ...it, value: s.users_count.toLocaleString(), change, sparklineData: newHistory["users"] };
+              if (t === "users") {
+                const change =
+                  typeof s?.users_count === "number"
+                    ? { value: pctUp(s?.users_24h, s?.users_count), trend: "up" as const }
+                    : it.change;
+                const value = typeof s?.users_count === "number" ? s.users_count.toLocaleString() : it.value;
+                return { ...it, value, change, sparklineData: usersHistory };
               }
-              if (t === "tokens" && typeof s?.token_count === "number") {
-                const change = { value: pctUp(s?.tokens_24h, s?.token_count), trend: "up" as const };
-                return { ...it, value: s.token_count.toLocaleString(), change, sparklineData: newHistory["tokens"] };
+              if (t === "tokens") {
+                const change =
+                  typeof s?.token_count === "number"
+                    ? { value: pctUp(s?.tokens_24h, s?.token_count), trend: "up" as const }
+                    : it.change;
+                const value = typeof s?.token_count === "number" ? s.token_count.toLocaleString() : it.value;
+                return { ...it, value, change, sparklineData: tokensHistory };
               }
               if (t.startsWith("token calls")) {
                 if (it.title.includes("1h") && typeof s?.calls_1h === "number") {
@@ -75,13 +91,16 @@ export function StatsLive({ initial, periodLabel, showChange = true }: { initial
                 }
                 if (typeof s?.calls_total === "number") {
                   const change = { value: pctUp(s?.calls_24h, s?.calls_total), trend: "up" as const };
-                  return { ...it, value: s.calls_total.toLocaleString(), change, sparklineData: newHistory["token calls"] };
+                  return { ...it, value: s.calls_total.toLocaleString(), change, sparklineData: callsHistory };
+                }
+                if (callsHistory.length) {
+                  return { ...it, sparklineData: callsHistory };
                 }
               }
               return it;
             }),
           );
-          
+
           return newHistory;
         });
       } catch {
