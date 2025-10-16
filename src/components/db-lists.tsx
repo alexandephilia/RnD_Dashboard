@@ -306,10 +306,22 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                                     alt={tokenName}
                                     className="h-8 w-8 rounded-full object-cover"
                                     onError={(event) => {
-                                        (event.currentTarget as HTMLImageElement).style.display = "none";
+                                        const img = event.currentTarget as HTMLImageElement;
+                                        // Try fallback: use first 2 letters of token name as placeholder
+                                        const initials = tokenName.slice(0, 2).toUpperCase();
+                                        img.style.display = "none";
+                                        // Create a fallback div
+                                        const fallback = document.createElement("div");
+                                        fallback.className = "h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium";
+                                        fallback.textContent = initials;
+                                        img.parentNode?.insertBefore(fallback, img);
                                     }}
                                 />
-                            ) : null}
+                            ) : (
+                                <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium">
+                                    {tokenName.slice(0, 2).toUpperCase()}
+                                </div>
+                            )}
                             <div className="flex min-w-0 flex-col">
                                 <span className="truncate font-medium">{tokenName}</span>
                                 <span className="truncate text-xs text-muted-foreground">
