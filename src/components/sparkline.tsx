@@ -7,6 +7,7 @@ interface SparklineProps {
   className?: string;
   showAnomalies?: boolean;
   autoWidth?: boolean;
+  autoHeight?: boolean;
 }
 
 export function Sparkline({
@@ -16,6 +17,7 @@ export function Sparkline({
   className = "",
   showAnomalies = true,
   autoWidth = true,
+  autoHeight = true,
 }: SparklineProps) {
   const uniqueId = useId();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -34,10 +36,11 @@ export function Sparkline({
     return () => ro.disconnect();
   }, [autoWidth]);
   const w = autoWidth ? measuredWidth ?? width : width;
-  // Subtle left-edge fade: ~3% of width, clamped between 4px and 12px
-  const fadePx = Math.min(12, Math.max(4, Math.round(w * 0.03)));
+  const h = autoHeight ? Math.max(20, Math.min(64, Math.round(w * 0.22))) : height;
+  // Left-edge fade: ~20% of width, clamped between 24px and 80px for maximum spread
+  const fadePx = Math.min(80, Math.max(24, Math.round(w * 0.20)));
   const { points, anomalyIndices, min, max, chartBottom, chartHeight, isFlat } = useMemo(() => {
-    if (!data.length) return { points: "", anomalyIndices: [], min: 0, max: 0, chartTop: 0, chartBottom: height, chartHeight: height, isFlat: true };
+    if (!data.length) return { points: "", anomalyIndices: [], min: 0, max: 0, chartTop: 0, chartBottom: h, chartHeight: h, isFlat: true };
 
     const min = Math.min(...data);
     const max = Math.max(...data);
@@ -45,9 +48,9 @@ export function Sparkline({
     const isFlat = max === min;
 
     // Vertical padding to avoid clipping line/dots
-    const paddingY = Math.min(10, Math.max(4, Math.round(height * 0.15)));
+    const paddingY = Math.min(10, Math.max(4, Math.round(h * 0.15)));
     const chartTop = paddingY;
-    const chartBottom = height - paddingY;
+    const chartBottom = h - paddingY;
     const chartHeight = Math.max(1, chartBottom - chartTop);
 
     // Calculate mean and standard deviation for anomaly detection
@@ -85,17 +88,17 @@ export function Sparkline({
       .join(" ");
 
     return { points, anomalyIndices, min, max, chartBottom, chartHeight, isFlat };
-  }, [data, w, height, showAnomalies]);
+  }, [data, w, h, showAnomalies]);
 
   if (!data.length) {
     return (
       <div ref={containerRef} className={className} style={{ width: "100%" }}>
-        <svg width={w} height={height} viewBox={`0 0 ${w} ${height}`} style={{ overflow: "visible", width: "100%", height }}>
+        <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ overflow: "visible", width: "100%", height: h }}>
           <line
             x1="0"
-            y1={height / 2}
+            y1={h / 2}
             x2={w}
-            y2={height / 2}
+            y2={h / 2}
             stroke="currentColor"
             strokeWidth="1"
             opacity="0.2"
@@ -107,7 +110,7 @@ export function Sparkline({
 
   return (
     <div ref={containerRef} className={className} style={{ width: "100%" }}>
-      <svg width={w} height={height} viewBox={`0 0 ${w} ${height}`} style={{ overflow: "visible", width: "100%", height }}>
+      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ overflow: "visible", width: "100%", height: h }}>
         {/* Gradient fill under the line */}
         <defs>
         <linearGradient id={`sparkline-gradient-${uniqueId}`} x1="0" x2="0" y1="0" y2="1">
@@ -116,13 +119,16 @@ export function Sparkline({
         </linearGradient>
         
         {/* Horizontal fade mask for left/right edges */}
-        <linearGradient id={`sparkline-fade-mask-${uniqueId}`} x1={0} x2={fadePx} y1={0} y2={0} gradientUnits="userSpaceOnUse">
+        <linearGradient id={`sparkline-fade-mask-${uniqueId}`} x1="0" x2={fadePx} y1="0" y2="0" gradientUnits="userSpaceOnUse">
           <stop offset="0" stopColor="white" stopOpacity="0" />
+          <stop offset="0.2" stopColor="white" stopOpacity="0.25" />
+          <stop offset="0.4" stopColor="white" stopOpacity="0.5" />
+          <stop offset="0.65" stopColor="white" stopOpacity="0.8" />
           <stop offset="1" stopColor="white" stopOpacity="1" />
         </linearGradient>
         
         <mask id={`sparkline-mask-${uniqueId}`} maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse">
-          <rect width={w} height={height} fill={`url(#sparkline-fade-mask-${uniqueId})`} />
+          <rect width={w} height={h} fill={`url(#sparkline-fade-mask-${uniqueId})`} />
         </mask>
       </defs>
 
@@ -154,9 +160,9 @@ export function Sparkline({
         const lastX = (lastIdx / Math.max(1, data.length - 1)) * w; // always right edge when single point
         const lastY = chartBottom - ((lastValue - min) / (Math.max(1, max - min))) * chartHeight;
         
-        const dotR = Math.max(2.5, Math.round(height * 0.05));
-        const ringStart = Math.max(dotR + 2, Math.round(height * 0.1));
-        const ringEnd = Math.max(ringStart + 4, Math.round(height * 0.2));
+        const dotR = Math.max(2.5, Math.round(h * 0.05));
+        const ringStart = Math.max(dotR + 2, Math.round(h * 0.1));
+        const ringEnd = Math.max(ringStart + 4, Math.round(h * 0.2));
         
         return (
           <g>

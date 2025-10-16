@@ -21,7 +21,23 @@ export function StatsCard({ title, value, change, icon, changeLabel, showChange 
 
   return (
     <div className="relative p-4 lg:p-5 group before:absolute before:inset-y-8 before:right-0 before:w-px before:bg-gradient-to-b before:from-input/30 before:via-input before:to-input/30 last:before:hidden">
-      <div className="relative flex items-start gap-4 justify-between">
+      {/* Background sparkline layer */}
+      {sparklineData && sparklineData.length >= 0 && (
+        <div className="absolute inset-0 opacity-30 text-yellow-500/60 pointer-events-none overflow-hidden rounded-lg">
+          <div className="w-full h-full flex items-center justify-end pr-4 lg:pr-5">
+            <div className="w-[50%] max-w-[300px] h-full flex items-center">
+              <Sparkline 
+                data={sparklineData && sparklineData.length > 0 ? sparklineData : [0]} 
+                showAnomalies={false} 
+                className="w-full h-auto" 
+              />
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Foreground content */}
+      <div className="relative flex items-start gap-4 z-10">
         <RiArrowRightUpLine
           className="absolute right-0 top-0 opacity-0 group-has-[a:hover]:opacity-100 transition-opacity text-yellow-500 z-10"
           size={20}
@@ -50,26 +66,6 @@ export function StatsCard({ title, value, change, icon, changeLabel, showChange 
             </div>
           )}
         </div>
-        {/* Sparkline - Right side on tablet and up */}
-<div className="hidden md:flex ml-auto items-center opacity-70 text-yellow-500 flex-none basis-[clamp(140px,28%,300px)] min-w-[120px] max-w-[320px]">
-          <div className="w-full min-w-0">
-            <Sparkline 
-              data={sparklineData && sparklineData.length > 0 ? sparklineData : [0]} 
-              height={60} 
-              showAnomalies={false} 
-              className="w-full h-auto" 
-            />
-          </div>
-        </div>
-      </div>
-      {/* Sparkline - Bottom on mobile only */}
-      <div className="md:hidden mt-3 -mb-1 opacity-60 text-yellow-500 w-full">
-        <Sparkline 
-          data={sparklineData && sparklineData.length > 0 ? sparklineData : [0]} 
-          height={32} 
-          showAnomalies={false} 
-          className="w-full h-auto" 
-        />
       </div>
     </div>
   );
