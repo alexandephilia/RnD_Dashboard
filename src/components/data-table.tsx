@@ -3,7 +3,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-    Table,
     TableBody,
     TableCell,
     TableHead,
@@ -29,7 +28,8 @@ import {
     getSortedRowModel,
     useReactTable,
 } from "@tanstack/react-table";
-import { useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 
 interface DataTableProps<TData> {
     data: TData[];
@@ -50,12 +50,29 @@ export function DataTable<TData>({
 }: DataTableProps<TData>) {
     const id = useId();
     const inputRef = useRef<HTMLInputElement>(null);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
     const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
     const [sorting, setSorting] = useState<SortingState>([]);
     const [pagination, setPagination] = useState<PaginationState>({
         pageIndex: 0,
         pageSize: defaultPageSize,
     });
+    const [scrollState, setScrollState] = useState({
+        isScrolledLeft: false,
+        isScrolledRight: false,
+        canScrollHorizontally: false,
+    });
+
+    const showLeftFade = scrollState.canScrollHorizontally && scrollState.isScrolledLeft;
+    const showRightFade = scrollState.canScrollHorizontally && scrollState.isScrolledRight;
+    const leftFadeStyle: CSSProperties = {
+        backgroundImage:
+            "linear-gradient(to right, var(--color-card) 0%, var(--color-card) 55%, transparent 100%)",
+    };
+    const rightFadeStyle: CSSProperties = {
+        backgroundImage:
+            "linear-gradient(to left, var(--color-card) 0%, var(--color-card) 55%, transparent 100%)",
+    };
 
     const table = useReactTable({
         data,
@@ -74,6 +91,69 @@ export function DataTable<TData>({
             columnFilters,
         },
     });
+
+    const updateScrollIndicators = useCallback(() => {
+        const container = scrollContainerRef.current;
+        if (!container) return;
+
+        const { scrollLeft, scrollWidth, clientWidth } = container;
+        const maxScrollLeft = Math.max(scrollWidth - clientWidth, 0);
+        const epsilon = 2;
+
+        const nextState = {
+            canScrollHorizontally: scrollWidth > clientWidth + epsilon,
+            isScrolledLeft: scrollLeft > epsilon,
+            isScrolledRight: scrollLeft < maxScrollLeft - epsilon,
+        };
+
+        setScrollState((prev) => {
+            if (
+                prev.canScrollHorizontally === nextState.canScrollHorizontally &&
+                prev.isScrolledLeft === nextState.isScrolledLeft &&
+                prev.isScrolledRight === nextState.isScrolledRight
+            ) {
+                return prev;
+            }
+            return nextState;
+        });
+    }, []);
+
+    useEffect(() => {
+        const container = scrollContainerRef.current;
+        if (!container) return;
+
+        let frame = 0;
+        const handleScroll = () => {
+            if (frame) {
+                cancelAnimationFrame(frame);
+            }
+            frame = requestAnimationFrame(() => {
+                frame = 0;
+                updateScrollIndicators();
+            });
+        };
+
+        handleScroll();
+        container.addEventListener("scroll", handleScroll, { passive: true });
+        window.addEventListener("resize", updateScrollIndicators);
+
+        let resizeObserver: ResizeObserver | null = null;
+        if (typeof ResizeObserver !== "undefined") {
+            resizeObserver = new ResizeObserver(() => updateScrollIndicators());
+            resizeObserver.observe(container);
+        }
+
+        return () => {
+            container.removeEventListener("scroll", handleScroll);
+            window.removeEventListener("resize", updateScrollIndicators);
+            if (frame) {
+                cancelAnimationFrame(frame);
+            }
+            if (resizeObserver) {
+                resizeObserver.disconnect();
+            }
+        };
+    }, [updateScrollIndicators]);
 
     const totalRows = table.getFilteredRowModel().rows.length;
     const { pageIndex, pageSize } = table.getState().pagination;
@@ -140,83 +220,104 @@ export function DataTable<TData>({
                 </div>
             )}
 
-            <div className="rounded-lg border bg-card">
-                <div className="relative w-full overflow-auto">
-                    <Table className="min-w-[640px]">
-                        <TableHeader>
-                            {table.getHeaderGroups().map((headerGroup) => (
-                                <TableRow key={headerGroup.id} className="hover:bg-transparent">
-                                    {headerGroup.headers.map((header) => (
-                                        <TableHead
-                                            key={header.id}
-                                            className="bg-muted/40"
-                                        >
-                                            {header.isPlaceholder ? null : header.column.getCanSort() ? (
-                                                <button
-                                                    type="button"
-                                                    className={cn(
-                                                        "flex w-full items-center gap-2 text-left font-medium transition-colors",
-                                                        "hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                                                    )}
-                                                    onClick={header.column.getToggleSortingHandler()}
-                                                >
-                                                    {flexRender(
+            <div className="rounded-lg border bg-card overflow-hidden">
+                <div className="relative">
+                    <div
+                        ref={scrollContainerRef}
+                        className="relative w-full overflow-x-auto overflow-y-visible"
+                    >
+                        <table className="min-w-[640px] w-full caption-bottom text-sm">
+                            <TableHeader>
+                                {table.getHeaderGroups().map((headerGroup) => (
+                                    <TableRow key={headerGroup.id} className="hover:bg-transparent">
+                                        {headerGroup.headers.map((header) => (
+                                            <TableHead
+                                                key={header.id}
+                                                className="bg-muted/40"
+                                            >
+                                                {header.isPlaceholder ? null : header.column.getCanSort() ? (
+                                                    <button
+                                                        type="button"
+                                                        className={cn(
+                                                            "flex w-full items-center gap-2 text-left font-medium transition-colors",
+                                                            "hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                                                        )}
+                                                        onClick={header.column.getToggleSortingHandler()}
+                                                    >
+                                                        {flexRender(
+                                                            header.column.columnDef.header,
+                                                            header.getContext(),
+                                                        )}
+                                                        {{
+                                                            asc: (
+                                                                <RiArrowUpSLine
+                                                                    className="shrink-0"
+                                                                    size={16}
+                                                                    aria-hidden="true"
+                                                                    suppressHydrationWarning
+                                                                />
+                                                            ),
+                                                            desc: (
+                                                                <RiArrowDownSLine
+                                                                    className="shrink-0"
+                                                                    size={16}
+                                                                    aria-hidden="true"
+                                                                    suppressHydrationWarning
+                                                                />
+                                                            ),
+                                                        }[header.column.getIsSorted() as string] ?? null}
+                                                    </button>
+                                                ) : (
+                                                    flexRender(
                                                         header.column.columnDef.header,
                                                         header.getContext(),
-                                                    )}
-                                                    {{
-                                                        asc: (
-                                                            <RiArrowUpSLine
-                                                                className="shrink-0"
-                                                                size={16}
-                                                                aria-hidden="true"
-                                                                suppressHydrationWarning
-                                                            />
-                                                        ),
-                                                        desc: (
-                                                            <RiArrowDownSLine
-                                                                className="shrink-0"
-                                                                size={16}
-                                                                aria-hidden="true"
-                                                                suppressHydrationWarning
-                                                            />
-                                                        ),
-                                                    }[header.column.getIsSorted() as string] ?? null}
-                                                </button>
-                                            ) : (
-                                                flexRender(
-                                                    header.column.columnDef.header,
-                                                    header.getContext(),
-                                                )
-                                            )}
-                                        </TableHead>
-                                    ))}
-                                </TableRow>
-                            ))}
-                        </TableHeader>
-                        <TableBody>
-                            {hasRows ? (
-                                table.getRowModel().rows.map((row) => (
-                                    <TableRow key={row.id} className="hover:bg-muted/50">
-                                        {row.getVisibleCells().map((cell) => (
-                                            <TableCell key={cell.id} className="align-middle">
-                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                            </TableCell>
+                                                    )
+                                                )}
+                                            </TableHead>
                                         ))}
                                     </TableRow>
-                                ))
-                            ) : (
-                                <TableRow className="hover:bg-transparent">
-                                    <TableCell
-                                        colSpan={columns.length}
-                                        className="h-24 text-center text-muted-foreground"
-                                    >
-                                        {emptyMessage}
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
+                                ))}
+                            </TableHeader>
+                            <TableBody>
+                                {hasRows ? (
+                                    table.getRowModel().rows.map((row) => (
+                                        <TableRow key={row.id} className="hover:bg-muted/50">
+                                            {row.getVisibleCells().map((cell) => (
+                                                <TableCell key={cell.id} className="align-middle">
+                                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                </TableCell>
+                                            ))}
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow className="hover:bg-transparent">
+                                        <TableCell
+                                            colSpan={columns.length}
+                                            className="h-24 text-center text-muted-foreground"
+                                        >
+                                            {emptyMessage}
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </table>
+                    </div>
+                    <div
+                        className={cn(
+                            "pointer-events-none absolute inset-y-0 left-0 w-16 transition-opacity duration-300",
+                            showLeftFade ? "opacity-100" : "opacity-0",
+                        )}
+                        style={leftFadeStyle}
+                        aria-hidden="true"
+                    />
+                    <div
+                        className={cn(
+                            "pointer-events-none absolute inset-y-0 right-0 w-16 transition-opacity duration-300",
+                            showRightFade ? "opacity-100" : "opacity-0",
+                        )}
+                        style={rightFadeStyle}
+                        aria-hidden="true"
+                    />
                 </div>
             </div>
 

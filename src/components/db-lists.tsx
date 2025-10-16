@@ -25,6 +25,10 @@ type Props = {
     groupMonthlyTokens: unknown[];
 };
 
+type TabKey = "token-calls" | "users" | "group-monthly";
+
+const TAB_ORDER: TabKey[] = ["token-calls", "users", "group-monthly"];
+
 const toNumber = (value: unknown): number | null => {
     if (typeof value === "number" && Number.isFinite(value)) return value;
     if (typeof value === "string") {
@@ -105,6 +109,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
         null,
     );
     const [copied, setCopied] = useState(false);
+    const [activeTab, setActiveTab] = useState<TabKey>("token-calls");
 
     const sortBy = useCallback(
         (records: GenericRecord[], getTimestamp: (record: GenericRecord) => number) =>
@@ -549,21 +554,47 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
         ];
     }, [handleViewDetails]);
 
+    const tabIndex = Math.max(TAB_ORDER.indexOf(activeTab), 0);
+
     return (
         <>
-            <Tabs defaultValue="token-calls" className="w-full">
+            <Tabs
+                value={activeTab}
+                onValueChange={(value) => setActiveTab(value as TabKey)}
+                className="w-full"
+            >
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                    <div>
-                        <h2 className="text-lg font-semibold">Explore Data</h2>
-                        <p className="text-sm text-muted-foreground">
-                            Switch between token calls, users, and group monthly metrics.
-                        </p>
+                    <h2 className="text-lg font-semibold">Explore Data</h2>
+                    <div className="relative w-full max-w-md">
+                        <TabsList className="relative grid w-full grid-cols-3 overflow-hidden rounded-md border border-border bg-muted/40">
+                            <span
+                                className="pointer-events-none absolute inset-y-0 left-0 rounded-md bg-background shadow-sm transition-transform duration-300 ease-out"
+                                style={{
+                                    transform: `translateX(${tabIndex * 100}%)`,
+                                    width: `${100 / TAB_ORDER.length}%`,
+                                }}
+                                aria-hidden="true"
+                            />
+                            <TabsTrigger
+                                value="token-calls"
+                                className="relative z-10 px-4 py-2 text-sm font-medium text-muted-foreground transition-colors focus-visible:z-10 data-[state=active]:text-foreground"
+                            >
+                                Token Calls
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="users"
+                                className="relative z-10 px-4 py-2 text-sm font-medium text-muted-foreground transition-colors focus-visible:z-10 data-[state=active]:text-foreground"
+                            >
+                                Users
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="group-monthly"
+                                className="relative z-10 px-4 py-2 text-sm font-medium text-muted-foreground transition-colors focus-visible:z-10 data-[state=active]:text-foreground"
+                            >
+                                Group Monthly
+                            </TabsTrigger>
+                        </TabsList>
                     </div>
-                    <TabsList className="grid w-full max-w-md grid-cols-3">
-                        <TabsTrigger value="token-calls">Token Calls</TabsTrigger>
-                        <TabsTrigger value="users">Users</TabsTrigger>
-                        <TabsTrigger value="group-monthly">Group Monthly</TabsTrigger>
-                    </TabsList>
                 </div>
 
                 <TabsContent value="token-calls" className="space-y-4">
