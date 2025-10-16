@@ -584,7 +584,7 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
                 antialias,
                 alpha: true
             }) as WebGL2RenderingContext | null;
-            let isWebGL2 = !!gl;
+            const isWebGL2 = !!gl;
             if (!gl) {
                 // Fallback to WebGL1 on platforms like older iOS Safari or in-app browsers
                 gl = (canvas.getContext('webgl', { antialias, alpha: true }) ||

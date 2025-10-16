@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { ChevronRight, Copy } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type JSONValue = string | number | boolean | null | JSONObject | JSONArray;
@@ -129,7 +128,7 @@ const JsonValue = ({
                         isHovered && "filter drop-shadow-[0_0_0.55rem_rgba(249,115,22,0.65)] brightness-125"
                     )}
                 >
-                    "{value}"
+                    &quot;{value}&quot;
                 </span>
                 {onCopy && (
                     <button
