@@ -565,7 +565,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
             >
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <h2 className="text-lg font-semibold">Explore Data</h2>
-                    <TabsList className="relative flex w-full max-w-md gap-2 -mb-[14px]">
+                    <TabsList className="relative flex w-full max-w-md gap-2 -mb-[11px]">
                             <span
                                 className="pointer-events-none absolute bottom-0 left-0 h-full rounded-t-lg border border-b-0 border-border bg-muted/20 shadow-sm transition-all duration-500 ease-in-out"
                                 style={{
