@@ -266,30 +266,52 @@ export default async function Page() {
         calls: statsSnapshot?.calls_24h ?? callsWin.curr,
     } as const;
 
+    // Generate initial sparkline data (simulated trend with some variance)
+    const generateSparkline = (baseValue: number, points = 24) => {
+        const data: number[] = [];
+        let current = baseValue * 0.85; // Start at 85% of current value
+        for (let i = 0; i < points; i++) {
+            const variance = (Math.random() - 0.5) * 0.1; // ±5% variance
+            const trend = (baseValue - current) / points; // Gradual increase to current
+            current = Math.max(0, current + trend + (current * variance));
+            data.push(Math.round(current));
+        }
+        // Add an anomaly spike at a random point for demo
+        if (points > 10) {
+            const spikeIndex = Math.floor(points * 0.6);
+            data[spikeIndex] = Math.round(data[spikeIndex] * 1.8);
+        }
+        return data;
+    };
+
     const stats = [
         {
             title: "Groups",
             value: totals.groups.toLocaleString(),
             change: { value: pctUp(gains24h.groups, totals.groups), trend: "up" as const },
             icon: <RiGroupLine size={20} aria-hidden="true" suppressHydrationWarning />,
+            sparklineData: generateSparkline(totals.groups),
         },
         {
             title: "Users",
             value: totals.users.toLocaleString(),
             change: { value: pctUp(gains24h.users, totals.users), trend: "up" as const },
             icon: <RiUserLine size={20} aria-hidden="true" suppressHydrationWarning />,
+            sparklineData: generateSparkline(totals.users),
         },
         {
             title: "Tokens",
             value: totals.tokens.toLocaleString(),
             change: { value: pctUp(gains24h.tokens, totals.tokens), trend: "up" as const },
             icon: <RiDatabaseLine size={20} aria-hidden="true" suppressHydrationWarning />,
+            sparklineData: generateSparkline(totals.tokens),
         },
         {
             title: callsLabel,
             value: callsValue.toLocaleString(),
             change: { value: pctUp(gains24h.calls, totals.calls), trend: "up" as const },
             icon: <RiBarChartLine size={20} aria-hidden="true" suppressHydrationWarning />,
+            sparklineData: generateSparkline(callsValue),
         },
     ];
     return (

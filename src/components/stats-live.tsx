@@ -4,10 +4,11 @@ import * as React from "react";
 import { StatsGrid } from "@/components/stats-grid";
 
 type Change = { value: string; trend: "up" | "down" };
-type Stat = { title: string; value: string; change: Change; icon: React.ReactNode };
+type Stat = { title: string; value: string; change: Change; icon: React.ReactNode; sparklineData?: number[] };
 
 export function StatsLive({ initial, periodLabel, showChange = true }: { initial: Stat[]; periodLabel?: string; showChange?: boolean }) {
   const [stats, setStats] = React.useState<Stat[]>(initial);
+  const [sparklineHistory, setSparklineHistory] = React.useState<Record<string, number[]>>({});
 
   React.useEffect(() => {
     let active = true;
@@ -22,42 +23,59 @@ export function StatsLive({ initial, periodLabel, showChange = true }: { initial
           return `${pct}%`;
         };
 
-        setStats((prev) =>
-          prev.map((it) => {
-            const t = it.title.toLowerCase();
-            if (t === "groups") {
-              if (typeof s?.group_count === "number") {
+        const maxPoints = 24;
+        
+        // Update both history and stats together
+        setSparklineHistory((prevHistory) => {
+          const newHistory = { ...prevHistory };
+          
+          if (typeof s?.group_count === "number") {
+            newHistory["groups"] = [...(prevHistory["groups"] || []), s.group_count].slice(-maxPoints);
+          }
+          if (typeof s?.users_count === "number") {
+            newHistory["users"] = [...(prevHistory["users"] || []), s.users_count].slice(-maxPoints);
+          }
+          if (typeof s?.token_count === "number") {
+            newHistory["tokens"] = [...(prevHistory["tokens"] || []), s.token_count].slice(-maxPoints);
+          }
+          if (typeof s?.calls_total === "number") {
+            newHistory["token calls"] = [...(prevHistory["token calls"] || []), s.calls_total].slice(-maxPoints);
+          }
+          
+          // Update stats with new history
+          setStats((prev) =>
+            prev.map((it) => {
+              const t = it.title.toLowerCase();
+              if (t === "groups" && typeof s?.group_count === "number") {
                 const change = { value: pctUp(s?.groups_24h, s?.group_count), trend: "up" as const };
-                return { ...it, value: s.group_count.toLocaleString(), change };
+                return { ...it, value: s.group_count.toLocaleString(), change, sparklineData: newHistory["groups"] };
               }
-            }
-            if (t === "users") {
-              if (typeof s?.users_count === "number") {
+              if (t === "users" && typeof s?.users_count === "number") {
                 const change = { value: pctUp(s?.users_24h, s?.users_count), trend: "up" as const };
-                return { ...it, value: s.users_count.toLocaleString(), change };
+                return { ...it, value: s.users_count.toLocaleString(), change, sparklineData: newHistory["users"] };
               }
-            }
-            if (t === "tokens") {
-              if (typeof s?.token_count === "number") {
+              if (t === "tokens" && typeof s?.token_count === "number") {
                 const change = { value: pctUp(s?.tokens_24h, s?.token_count), trend: "up" as const };
-                return { ...it, value: s.token_count.toLocaleString(), change };
+                return { ...it, value: s.token_count.toLocaleString(), change, sparklineData: newHistory["tokens"] };
               }
-            }
-            if (t.startsWith("token calls")) {
-              if (it.title.includes("1h") && typeof s?.calls_1h === "number") {
-                return { ...it, value: s.calls_1h.toLocaleString() };
+              if (t.startsWith("token calls")) {
+                if (it.title.includes("1h") && typeof s?.calls_1h === "number") {
+                  return { ...it, value: s.calls_1h.toLocaleString() };
+                }
+                if (it.title.includes("24h") && typeof s?.calls_24h === "number") {
+                  return { ...it, value: s.calls_24h.toLocaleString() };
+                }
+                if (typeof s?.calls_total === "number") {
+                  const change = { value: pctUp(s?.calls_24h, s?.calls_total), trend: "up" as const };
+                  return { ...it, value: s.calls_total.toLocaleString(), change, sparklineData: newHistory["token calls"] };
+                }
               }
-              if (it.title.includes("24h") && typeof s?.calls_24h === "number") {
-                return { ...it, value: s.calls_24h.toLocaleString() };
-              }
-              if (typeof s?.calls_total === "number") {
-                const change = { value: pctUp(s?.calls_24h, s?.calls_total), trend: "up" as const };
-                return { ...it, value: s.calls_total.toLocaleString(), change };
-              }
-            }
-            return it;
-          }),
-        );
+              return it;
+            }),
+          );
+          
+          return newHistory;
+        });
       } catch {
         /* ignore */
       }

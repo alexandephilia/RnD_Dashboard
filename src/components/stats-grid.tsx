@@ -1,5 +1,6 @@
 import { RiArrowRightUpLine } from "@remixicon/react";
 import { cn } from "@/lib/utils";
+import { Sparkline } from "@/components/sparkline";
 
 interface StatsCardProps {
   title: string;
@@ -11,17 +12,18 @@ interface StatsCardProps {
   icon: React.ReactNode;
   changeLabel?: string;
   showChange?: boolean;
+  sparklineData?: number[];
 }
 
-export function StatsCard({ title, value, change, icon, changeLabel, showChange = true }: StatsCardProps) {
+export function StatsCard({ title, value, change, icon, changeLabel, showChange = true, sparklineData }: StatsCardProps) {
   const isPositive = change.trend === "up";
   const trendColor = isPositive ? "text-yellow-500" : "text-red-500";
 
   return (
     <div className="relative p-4 lg:p-5 group before:absolute before:inset-y-8 before:right-0 before:w-px before:bg-gradient-to-b before:from-input/30 before:via-input before:to-input/30 last:before:hidden">
-      <div className="relative flex items-center gap-4">
+      <div className="relative flex items-start gap-4">
         <RiArrowRightUpLine
-          className="absolute right-0 top-0 opacity-0 group-has-[a:hover]:opacity-100 transition-opacity text-yellow-500"
+          className="absolute right-0 top-0 opacity-0 group-has-[a:hover]:opacity-100 transition-opacity text-yellow-500 z-10"
           size={20}
           aria-hidden="true"
           suppressHydrationWarning
@@ -31,7 +33,7 @@ export function StatsCard({ title, value, change, icon, changeLabel, showChange 
           {icon}
         </div>
         {/* Content */}
-        <div>
+        <div className="flex-1 min-w-0">
           <a
             href="#"
             className="font-medium tracking-widest text-xs uppercase text-muted-foreground/60 before:absolute before:inset-0"
@@ -48,7 +50,19 @@ export function StatsCard({ title, value, change, icon, changeLabel, showChange 
             </div>
           )}
         </div>
+        {/* Sparkline - Right side on tablet/desktop */}
+        {sparklineData && sparklineData.length > 0 && (
+          <div className="hidden md:flex items-center opacity-70 text-yellow-500 relative z-0">
+            <Sparkline data={sparklineData} width={180} height={60} showAnomalies={true} />
+          </div>
+        )}
       </div>
+      {/* Sparkline - Bottom on mobile */}
+      {sparklineData && sparklineData.length > 0 && (
+        <div className="md:hidden mt-3 -mb-1 opacity-60 text-yellow-500">
+          <Sparkline data={sparklineData} width={140} height={28} showAnomalies={true} />
+        </div>
+      )}
     </div>
   );
 }
