@@ -34,7 +34,8 @@ export function Sparkline({
     return () => ro.disconnect();
   }, [autoWidth]);
   const w = autoWidth ? measuredWidth ?? width : width;
-  const fadePx = Math.max(6, Math.round(w * 0.06));
+  // Subtle left-edge fade: ~3% of width, clamped between 4px and 12px
+  const fadePx = Math.min(12, Math.max(4, Math.round(w * 0.03)));
   const { points, anomalyIndices, min, max, chartBottom, chartHeight, isFlat } = useMemo(() => {
     if (!data.length) return { points: "", anomalyIndices: [], min: 0, max: 0, chartTop: 0, chartBottom: height, chartHeight: height, isFlat: true };
 
@@ -84,7 +85,7 @@ export function Sparkline({
       .join(" ");
 
     return { points, anomalyIndices, min, max, chartBottom, chartHeight, isFlat };
-  }, [data, width, height, showAnomalies]);
+  }, [data, w, height, showAnomalies]);
 
   if (!data.length) {
     return (
@@ -150,7 +151,7 @@ export function Sparkline({
       {(() => {
         const lastIdx = data.length - 1;
         const lastValue = data[lastIdx];
-        const lastX = data.length === 1 ? w / 2 : (lastIdx / (data.length - 1)) * w;
+        const lastX = (lastIdx / Math.max(1, data.length - 1)) * w; // always right edge when single point
         const lastY = chartBottom - ((lastValue - min) / (Math.max(1, max - min))) * chartHeight;
         
         const dotR = Math.max(2.5, Math.round(height * 0.05));

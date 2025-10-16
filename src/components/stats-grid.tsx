@@ -51,7 +51,7 @@ export function StatsCard({ title, value, change, icon, changeLabel, showChange 
           )}
         </div>
         {/* Sparkline - Right side on tablet and up */}
-        <div className="hidden md:flex ml-auto items-center opacity-70 text-yellow-500 flex-none basis-[clamp(140px,28%,300px)] min-w-[120px] max-w-[320px]">
+<div className="hidden md:flex ml-auto items-center opacity-70 text-yellow-500 flex-none basis-[clamp(140px,28%,300px)] min-w-[120px] max-w-[320px]">
           <div className="w-full min-w-0">
             <Sparkline 
               data={sparklineData && sparklineData.length > 0 ? sparklineData : [0]} 
