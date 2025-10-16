@@ -21,7 +21,7 @@ export function StatsCard({ title, value, change, icon, changeLabel, showChange 
 
   return (
     <div className="relative p-4 lg:p-5 group before:absolute before:inset-y-8 before:right-0 before:w-px before:bg-gradient-to-b before:from-input/30 before:via-input before:to-input/30 last:before:hidden">
-      <div className="relative flex items-start gap-4">
+      <div className="relative flex items-start gap-4 justify-between">
         <RiArrowRightUpLine
           className="absolute right-0 top-0 opacity-0 group-has-[a:hover]:opacity-100 transition-opacity text-yellow-500 z-10"
           size={20}
@@ -50,12 +50,11 @@ export function StatsCard({ title, value, change, icon, changeLabel, showChange 
             </div>
           )}
         </div>
-        {/* Sparkline - Right side on tablet/desktop */}
-        <div className="hidden md:flex items-center opacity-70 text-yellow-500 flex-shrink min-w-[80px] max-w-[280px]">
-          <div className="w-full">
+        {/* Sparkline - Right side on tablet and up */}
+        <div className="hidden md:flex ml-auto items-center opacity-70 text-yellow-500 flex-none basis-[clamp(140px,28%,300px)] min-w-[120px] max-w-[320px]">
+          <div className="w-full min-w-0">
             <Sparkline 
               data={sparklineData && sparklineData.length > 0 ? sparklineData : [0]} 
-              width={200} 
               height={60} 
               showAnomalies={false} 
               className="w-full h-auto" 
@@ -63,11 +62,10 @@ export function StatsCard({ title, value, change, icon, changeLabel, showChange 
           </div>
         </div>
       </div>
-      {/* Sparkline - Bottom on mobile */}
+      {/* Sparkline - Bottom on mobile only */}
       <div className="md:hidden mt-3 -mb-1 opacity-60 text-yellow-500 w-full">
         <Sparkline 
           data={sparklineData && sparklineData.length > 0 ? sparklineData : [0]} 
-          width={200} 
           height={32} 
           showAnomalies={false} 
           className="w-full h-auto" 
