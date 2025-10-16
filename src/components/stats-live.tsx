@@ -8,7 +8,15 @@ type Stat = { title: string; value: string; change: Change; icon: React.ReactNod
 
 export function StatsLive({ initial, periodLabel, showChange = true }: { initial: Stat[]; periodLabel?: string; showChange?: boolean }) {
   const [stats, setStats] = React.useState<Stat[]>(initial);
-  const [sparklineHistory, setSparklineHistory] = React.useState<Record<string, number[]>>({});
+  const [sparklineHistory, setSparklineHistory] = React.useState<Record<string, number[]>>(() => {
+    const seed: Record<string, number[]> = {};
+    for (const it of initial) {
+      if (it.sparklineData && it.sparklineData.length) {
+        seed[it.title.toLowerCase()] = it.sparklineData;
+      }
+    }
+    return seed;
+  });
 
   React.useEffect(() => {
     let active = true;
