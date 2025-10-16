@@ -366,11 +366,13 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
             },
             {
                 accessorKey: "post_count",
-                header: "Posts",
+                header: () => <div className="text-center">Posts</div>,
                 cell: ({ row }) => (
-                    <Badge variant="secondary" className="tabular-nums">
-                        {formatNumber(row.original.post_count)}
-                    </Badge>
+                    <div className="flex justify-center">
+                        <Badge variant="secondary" className="tabular-nums">
+                            {formatNumber(row.original.post_count)}
+                        </Badge>
+                    </div>
                 ),
             },
             {
@@ -516,26 +518,28 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
             },
             {
                 accessorKey: "token_count",
-                header: "Token Count",
+                header: () => <div className="text-center">Token Count</div>,
                 cell: ({ row }) => {
                     const tokens = row.original.tokens;
                     const count = Array.isArray(tokens) ? tokens.length : 0;
                     return (
-                        <Badge variant="secondary" className="tabular-nums">
-                            {formatNumber(count)}
-                        </Badge>
+                        <div className="flex justify-center">
+                            <Badge variant="secondary" className="tabular-nums">
+                                {formatNumber(count)}
+                            </Badge>
+                        </div>
                     );
                 },
             },
             {
                 accessorKey: "total_posts",
-                header: "Total Posts",
+                header: () => <div className="text-center">Total Posts</div>,
                 cell: ({ row }) => {
                     const tokens = row.original.tokens as Array<{ post_count?: number }> | undefined;
                     const total = Array.isArray(tokens)
                         ? tokens.reduce((sum, t) => sum + (t.post_count || 0), 0)
                         : 0;
-                    return <span className="tabular-nums">{formatNumber(total)}</span>;
+                    return <div className="text-center tabular-nums">{formatNumber(total)}</div>;
                 },
             },
             {
