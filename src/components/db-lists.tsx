@@ -15,6 +15,7 @@ import {
     SheetTitle,
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { JsonTreeViewer } from "@/components/json-tree-viewer";
 import { cn } from "@/lib/utils";
 
 type GenericRecord = Record<string, unknown>;
@@ -214,6 +215,10 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
         () => (selected ? JSON.stringify(selected.data, null, 2) : ""),
         [selected],
     );
+
+    const handleJsonValueCopy = useCallback((value: string) => {
+        handleCopy(value);
+    }, [handleCopy]);
 
     const downloadCSV = useCallback((data: GenericRecord[], filename: string) => {
         if (!data.length) return;
@@ -700,38 +705,41 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
             </Tabs>
 
             <Sheet open={open} onOpenChange={setOpen}>
-                <SheetContent side="right" className="sm:max-w-md">
+                <SheetContent side="right" className="sm:max-w-2xl max-h-screen flex flex-col">
                     <SheetHeader>
                         <SheetTitle>{selected?.title ?? "Details"}</SheetTitle>
                     </SheetHeader>
-                    <div className="p-4 pt-0">
-                        <div className="relative max-h-[70vh] overflow-auto rounded-lg border border-yellow-500/30 bg-yellow-500/10">
-                            <div className="sticky top-0 right-0 flex justify-end gap-2 p-2 pb-0">
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleCopy(jsonString)}
-                                    disabled={!jsonString}
-                                    className="h-7 gap-2 bg-yellow-500/10 px-2 hover:bg-yellow-500/15"
-                                    aria-label={copied ? "Copied JSON" : "Copy JSON"}
-                                >
-                                    {copied ? (
-                                        <>
-                                            <CheckIcon className="h-3.5 w-3.5" />
-                                            <span className="hidden sm:inline">Copied</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <CopyIcon className="h-3.5 w-3.5" />
-                                            <span className="hidden sm:inline">Copy</span>
-                                        </>
-                                    )}
-                                </Button>
-                            </div>
-                            <pre className="whitespace-pre-wrap break-words p-3 pt-0 text-xs font-mono leading-5 md:text-sm">
-                                {jsonString}
-                            </pre>
+                    <div className="flex-1 p-4 pt-2 overflow-hidden flex flex-col">
+                        <div className="sticky top-0 flex justify-end gap-2 pb-3 z-10">
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleCopy(jsonString)}
+                                disabled={!jsonString}
+                                className="h-7 gap-2 px-2"
+                                aria-label={copied ? "Copied entire JSON" : "Copy entire JSON"}
+                            >
+                                {copied ? (
+                                    <>
+                                        <CheckIcon className="h-3.5 w-3.5" />
+                                        <span className="hidden sm:inline text-xs">Copied</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <CopyIcon className="h-3.5 w-3.5" />
+                                        <span className="hidden sm:inline text-xs">Copy All</span>
+                                    </>
+                                )}
+                            </Button>
+                        </div>
+                        <div className="flex-1 overflow-auto">
+                            {selected && (
+                                <JsonTreeViewer
+                                    data={selected.data}
+                                    onCopy={handleJsonValueCopy}
+                                />
+                            )}
                         </div>
                     </div>
                 </SheetContent>
