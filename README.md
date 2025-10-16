@@ -2,7 +2,18 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-First, run the development server:
+### 1. Environment Setup
+
+Create a `.env.local` file in the project root with your Stripe test mode API keys:
+
+```env
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_your_publishable_key_here
+STRIPE_SECRET_KEY=sk_test_your_secret_key_here
+```
+
+Get your test API keys from the [Stripe Dashboard](https://dashboard.stripe.com/test/apikeys).
+
+### 2. Run the development server
 
 ```bash
 npm run dev
@@ -17,6 +28,13 @@ bun dev
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+### Stripe payment demo
+
+- Navigate to [http://localhost:3000/payment](http://localhost:3000/payment) to access the fully integrated Stripe Elements checkout.
+- Update the amount field to regenerate a fresh Payment Intent in test mode.
+- Use Stripe test cards (e.g. `4242 4242 4242 4242`) with any future expiry, CVC, and postal code.
+- Successful payments remain constrained to your Stripe test dashboard and never charge real cards.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 

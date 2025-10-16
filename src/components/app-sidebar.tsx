@@ -16,7 +16,7 @@ import {
     SidebarMenuItem,
     SidebarRail,
 } from "@/components/ui/sidebar";
-import { RiLogoutBoxLine, RiScanLine, RiSettings3Line } from "@remixicon/react";
+import { RiBankCardLine, RiLogoutBoxLine, RiScanLine, RiSettings3Line } from "@remixicon/react";
 
 // This is sample data.
 const data = {
@@ -44,6 +44,12 @@ const data = {
                     url: "/dashboard",
                     icon: RiScanLine,
                     isActive: true,
+                },
+                {
+                    title: "Payment Demo",
+                    url: "/payment",
+                    icon: RiBankCardLine,
+                    isActive: false,
                 },
             ],
         },

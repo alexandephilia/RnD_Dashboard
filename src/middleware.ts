@@ -16,6 +16,11 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // Allow payment routes (public demo)
+  if (pathname.startsWith("/payment")) {
+    return NextResponse.next();
+  }
+
   // Protect root and dashboard
   const needsAuth = pathname === "/" || pathname.startsWith("/dashboard");
   if (!needsAuth) return NextResponse.next();
