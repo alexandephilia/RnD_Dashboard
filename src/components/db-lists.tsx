@@ -1,7 +1,7 @@
 "use client";
 
 import { Press_Start_2P } from "next/font/google";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { CheckIcon, CopyIcon, DownloadIcon, EyeIcon } from "lucide-react";
 
@@ -122,6 +122,11 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
         left: number;
         top: number;
     } | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const [justClicked, setJustClicked] = useState(false);
+    const [scrubVisual, setScrubVisual] = useState<number>(0); // visual bar, may lag behind
+    const clickDelayRef = useRef<number | null>(null);
+
 
     const sortBy = useCallback(
         (records: GenericRecord[], getTimestamp: (record: GenericRecord) => number) =>
@@ -426,7 +431,9 @@ header: () => <div className="w-[120px] text-right">First Called</div>,
                         if (firstMcap && athMcap) {
                             setActiveScrubRow(rowId);
                             const firstPct = Math.min(100, Math.max(0, (firstMcap / athMcap) * 100));
-                            setScrubValue(Number.isFinite(firstPct) ? firstPct : 0);
+                            const init = Number.isFinite(firstPct) ? firstPct : 0;
+                            setScrubValue(init);
+                            setScrubVisual(init);
                             if (e) openOverlay(e.currentTarget as HTMLElement);
                         }
                     };
@@ -457,21 +464,11 @@ header: () => <div className="w-[160px] text-right">ATH</div>,
                 cell: ({ row }) => {
                     const ath = toNumber(row.original.ath_mcap);
                     const last = toNumber(row.original.last_mcap);
-                    const first = toNumber(row.original.first_mcap);
-                    const rowId = `${row.original.token_address}-${row.original.group_id}`;
-                    const isScrubbingThis = activeScrubRow === rowId;
                     
                     // Calculate progress percentage (how close last_mcap is to ATH)
                     const progressPct = ath && last && ath > 0 
                         ? Math.min(100, (last / ath) * 100) 
                         : null;
-                    
-                    // Calculate scrub position for visual feedback
-                    const scrubPct = isScrubbingThis && Number.isFinite(scrubValue)
-                        ? Math.min(100, Math.max(0, scrubValue))
-                        : null;
-                        
-                    const firstPct = first && ath ? Math.min(100, (first / ath) * 100) : null;
                     
                     const isAtOrAboveATH = progressPct !== null && progressPct >= 99.5;
                     
@@ -483,80 +480,29 @@ header: () => <div className="w-[160px] text-right">ATH</div>,
                             {progressPct !== null && (
                                 <div className="flex flex-col gap-0.5">
                                     <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                                        {/* Glow underlay */}
                                         <div
-                                            className="absolute inset-0"
+                                            className="absolute top-1/2 -translate-y-1/2 h-3 rounded-full"
                                             style={{ 
-                                                opacity: 0.15,
-                                                background: 'linear-gradient(to right, rgb(239, 68, 68) 0%, rgb(251, 146, 60) 25%, rgb(250, 204, 21) 50%, rgb(163, 230, 53) 75%, rgb(34, 197, 94) 100%)'
+                                                width: `${progressPct}%`,
+                                                background: 'linear-gradient(to right, rgb(239, 68, 68) 0%, rgb(251, 146, 60) 25%, rgb(250, 204, 21) 50%, rgb(163, 230, 53) 75%, rgb(34, 197, 94) 100%)',
+                                                filter: 'blur(6px)',
+                                                opacity: 0.35,
+                                                transition: 'width 500ms ease-in-out'
                                             }}
                                         />
-                                        
-                                        {/* Show scrub overlay when active */}
-                                        {isScrubbingThis && scrubPct !== null && (
-                                            <>
-                                                {/* Scrub glow underlay */}
-                                                <div
-                                                    className="absolute top-1/2 -translate-y-1/2 h-3 rounded-full"
-                                                    style={{ 
-                                                        width: `${scrubPct}%`,
-                                                        background: 'linear-gradient(to right, rgb(59, 130, 246) 0%, rgb(147, 51, 234) 100%)',
-                                                        filter: 'blur(4px)',
-                                                        opacity: 0.4,
-                                                        transition: 'width 150ms ease-out'
-                                                    }}
-                                                />
-                                                {/* Scrub bar */}
-                                                <div
-                                                    className="relative h-full rounded-full"
-                                                    style={{ 
-                                                        width: `${scrubPct}%`,
-                                                        background: 'linear-gradient(to right, rgb(59, 130, 246) 0%, rgb(147, 51, 234) 100%)',
-                                                        transition: 'width 150ms ease-out'
-                                                    }}
-                                                />
-                                                {/* First Called pin */}
-                                                {firstPct !== null && (
-                                                    <div
-                                                        className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 bg-yellow-500 rounded-full"
-                                                        style={{ left: `${firstPct}%` }}
-                                                    />
-                                                )}
-                                            </>
-                                        )}
-                                        
-                                        {/* Default progress when not scrubbing */}
-                                        {!isScrubbingThis && (
-                                            <>
-                                                {/* Default glow underlay */}
-                                                <div
-                                                    className="absolute top-1/2 -translate-y-1/2 h-3 rounded-full"
-                                                    style={{ 
-                                                        width: `${progressPct}%`,
-                                                        background: 'linear-gradient(to right, rgb(239, 68, 68) 0%, rgb(251, 146, 60) 25%, rgb(250, 204, 21) 50%, rgb(163, 230, 53) 75%, rgb(34, 197, 94) 100%)',
-                                                        filter: 'blur(6px)',
-                                                        opacity: 0.35,
-                                                        transition: 'width 500ms ease-in-out'
-                                                    }}
-                                                />
-                                                {/* Default foreground progress bar */}
-                                                <div
-                                                    className="relative h-full rounded-full"
-                                                    style={{ 
-                                                        width: `${progressPct}%`,
-                                                        background: 'linear-gradient(to right, rgb(239, 68, 68) 0%, rgb(251, 146, 60) 25%, rgb(250, 204, 21) 50%, rgb(163, 230, 53) 75%, rgb(34, 197, 94) 100%)',
-                                                        transition: 'width 500ms ease-in-out'
-                                                    }}
-                                                />
-                                            </>
-                                        )}
+                                        {/* Foreground progress bar */}
+                                        <div
+                                            className="relative h-full rounded-full"
+                                            style={{ 
+                                                width: `${progressPct}%`,
+                                                background: 'linear-gradient(to right, rgb(239, 68, 68) 0%, rgb(251, 146, 60) 25%, rgb(250, 204, 21) 50%, rgb(163, 230, 53) 75%, rgb(34, 197, 94) 100%)',
+                                                transition: 'width 500ms ease-in-out'
+                                            }}
+                                        />
                                     </div>
                                     <span className="text-[10px] text-muted-foreground tabular-nums">
-                                        {isScrubbingThis && scrubPct !== null
-                                            ? `${scrubPct.toFixed(0)}% of ATH (scrub)`
-                                            : isAtOrAboveATH 
-                                                ? "At ATH" 
-                                                : `${progressPct.toFixed(0)}% of ATH`
-                                        }
+                                        {isAtOrAboveATH ? "At ATH" : `${progressPct?.toFixed(0)}% of ATH`}
                                     </span>
                                 </div>
                             )}
@@ -1140,20 +1086,122 @@ header: () => <div className="w-[150px] text-right">Joined</div>,
                             ×
                         </button>
                     </div>
-                    <div className="space-y-2">
-                        <input
-                            type="range"
-                            min={0}
-                            max={100}
-                            value={scrubValue}
-                            onChange={(e) => setScrubValue(Number(e.target.value))}
-                            className="w-full h-1 bg-muted rounded-lg appearance-none cursor-pointer"
-                        />
+                    <div className="space-y-3">
+                        {/* Custom multicolor interactive progress bar */}
                         {(() => {
                             const { first, ath } = scrubOverlay;
-                            const current = first + (ath - first) * (scrubValue / 100);
-                            const liftNeeded = current > 0 ? ((ath / current - 1) * 100) : 0;
-                            const fromFirst = first > 0 ? ((current / first - 1) * 100) : 0;
+                            const current = first + (ath - first) * (scrubVisual / 100);
+                            const xToAth = current > 0 ? (ath / current) : 1;
+                            const scrubProgress = Math.max(0, Math.min(100, scrubVisual));
+                            const firstMarkerLeft = Math.max(0, Math.min(100, (first / ath) * 100));
+                            
+                            const handleTrackClick = (e: React.MouseEvent<HTMLDivElement>) => {
+                                if ((e.target as HTMLElement).classList.contains('scrub-thumb')) return;
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                const clickX = e.clientX - rect.left;
+                                const percentage = Math.max(0, Math.min(100, (clickX / rect.width) * 100));
+                                setScrubValue(percentage);
+                                setJustClicked(true);
+                                if (clickDelayRef.current) clearTimeout(clickDelayRef.current);
+                                clickDelayRef.current = window.setTimeout(() => {
+                                    setScrubVisual(percentage);
+                                    setJustClicked(false);
+                                    clickDelayRef.current = null;
+                                }, 180);
+                            };
+                            
+                            const handleThumbMouseDown = (e: React.MouseEvent) => {
+                                e.stopPropagation();
+                                if (clickDelayRef.current) { clearTimeout(clickDelayRef.current); clickDelayRef.current = null; }
+                                setIsDragging(true);
+                                setJustClicked(false);
+                                
+                                const trackRect = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect();
+                                
+                                const handleMouseMove = (moveEvent: MouseEvent) => {
+                                    const moveX = moveEvent.clientX - trackRect.left;
+                                    const percentage = Math.max(0, Math.min(100, (moveX / trackRect.width) * 100));
+                                    setScrubValue(percentage);
+                                    setScrubVisual(percentage);
+                                };
+                                
+                                const handleMouseUp = () => {
+                                    setIsDragging(false);
+                                    document.removeEventListener('mousemove', handleMouseMove);
+                                    document.removeEventListener('mouseup', handleMouseUp);
+                                };
+                                
+                                document.addEventListener('mousemove', handleMouseMove);
+                                document.addEventListener('mouseup', handleMouseUp);
+                            };
+                            
+                            return (
+                                <div className="space-y-1">
+                                    <div className="flex justify-between items-center text-[10px] text-muted-foreground">
+                                        <span>Projection</span>
+                                        <span className="font-semibold text-blue-600 dark:text-blue-400">{xToAth.toFixed(1)}× to ATH</span>
+                                    </div>
+                                    {/* Custom interactive track */}
+                                    <div 
+                                        className="relative h-2 w-full rounded-full bg-muted cursor-pointer select-none"
+                                        onClick={handleTrackClick}
+                                    >
+                                        {/* Background muted layer */}
+                                        <div className="absolute inset-0 bg-muted/40 rounded-full z-0" />
+                                        
+                                        {/* Multicolor gradient fill */}
+                                        <div
+                                            className="absolute h-full rounded-full z-10"
+                                            style={{
+                                                width: `${scrubProgress}%`,
+                                                background: 'linear-gradient(to right, rgb(234 179 8), rgb(59 130 246), rgb(147 51 234))',
+                                                transitionProperty: 'width',
+                                                transitionDuration: isDragging ? '40ms' : '280ms',
+                                                transitionTimingFunction: isDragging ? 'linear' : 'cubic-bezier(.22,.61,.36,1)',
+                                                transitionDelay: (!isDragging && justClicked) ? '120ms' : '0ms',
+                                                willChange: 'width'
+                                            }}
+                                        />
+                                        
+                                        {/* First Called marker */}
+                                        <div
+                                            className="absolute top-1/2 -translate-y-1/2 w-1 h-4 bg-yellow-400 rounded-full shadow-lg z-20 pointer-events-none"
+                                            style={{ left: `${firstMarkerLeft}%`, boxShadow: '0 0 8px rgba(250, 204, 21, 0.7)' }}
+                                        />
+                                        
+                                        {/* ATH marker */}
+                                        <div
+                                            className="absolute top-1/2 right-0 -translate-y-1/2 w-1 h-4 bg-green-500 rounded-full shadow-lg z-20 pointer-events-none"
+                                            style={{ boxShadow: '0 0 8px rgba(34, 197, 94, 0.7)' }}
+                                        />
+                                        
+                                        {/* Draggable thumb */}
+                                        <div
+                                            className="scrub-thumb absolute w-5 h-5 rounded-full border-2 border-white shadow-lg z-30 cursor-grab active:cursor-grabbing"
+                                            style={{
+                                                left: `${scrubProgress}%`,
+                                                top: '50%',
+                                                background: 'linear-gradient(to bottom right, rgb(255 255 255), rgb(229 231 235))',
+                                                transform: `translate(-50%, -50%) scale(${isDragging ? 1.15 : 1})`,
+                                                transitionProperty: isDragging ? 'transform, box-shadow' : 'left, transform, box-shadow',
+                                                transitionDuration: isDragging ? '100ms, 100ms' : '280ms, 100ms, 100ms',
+                                                transitionTimingFunction: isDragging ? 'ease, ease' : 'cubic-bezier(.22,.61,.36,1), ease, ease',
+                                                transitionDelay: isDragging ? '0ms, 0ms' : `${justClicked ? '120ms' : '0ms'}, 0ms, 0ms`,
+                                                boxShadow: isDragging 
+                                                    ? '0 4px 12px rgba(0,0,0,0.3), 0 0 0 3px rgba(59,130,246,0.3)' 
+                                                    : '0 2px 8px rgba(0,0,0,0.2)'
+                                            }}
+                                            onMouseDown={handleThumbMouseDown}
+                                        />
+                                    </div>
+                                </div>
+                            );
+                        })()}
+                        {(() => {
+                            const { first, ath } = scrubOverlay;
+                        const current = first + (ath - first) * (scrubVisual / 100);
+                        const liftNeeded = current > 0 ? ((ath / current - 1) * 100) : 0;
+                        const fromFirst = first > 0 ? ((current / first - 1) * 100) : 0;
                             return (
                                 <>
                                     <div className="flex justify-between text-[10px] text-muted-foreground">
@@ -1161,9 +1209,10 @@ header: () => <div className="w-[150px] text-right">Joined</div>,
                                         <span>Current: {formatMcap(current)}</span>
                                         <span>ATH: {formatMcap(ath)}</span>
                                     </div>
-                                    <div className="text-[10px] text-center space-y-1">
-                                        <div>Lift needed: <span className="font-medium text-green-600 dark:text-green-400">{liftNeeded.toFixed(1)}%</span></div>
-                                        <div>From First: <span className="font-medium text-blue-600 dark:text-blue-400">{fromFirst.toFixed(1)}%</span></div>
+                                    <div className="flex items-center justify-center gap-3 text-[11px]">
+                                        <span>Lift needed: <span className="font-semibold text-green-600 dark:text-green-400" style={{ textShadow: '0 0 6px rgba(34,197,94,0.28)' }}>{liftNeeded.toFixed(1)}%</span></span>
+                                        <span className="h-3 w-px bg-border/70" />
+                                        <span>From First: <span className="font-semibold text-blue-600 dark:text-blue-400" style={{ textShadow: '0 0 6px rgba(59,130,246,0.28)' }}>{fromFirst.toFixed(1)}%</span></span>
                                     </div>
                                 </>
                             );
