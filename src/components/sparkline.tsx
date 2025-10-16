@@ -16,12 +16,13 @@ export function Sparkline({
   showAnomalies = true,
 }: SparklineProps) {
   const uniqueId = useId();
-  const { points, anomalyIndices, min, max, chartBottom, chartHeight } = useMemo(() => {
-    if (!data.length) return { points: "", anomalyIndices: [], min: 0, max: 0, chartTop: 0, chartBottom: height, chartHeight: height };
+  const { points, anomalyIndices, min, max, chartBottom, chartHeight, isFlat } = useMemo(() => {
+    if (!data.length) return { points: "", anomalyIndices: [], min: 0, max: 0, chartTop: 0, chartBottom: height, chartHeight: height, isFlat: true };
 
     const min = Math.min(...data);
     const max = Math.max(...data);
     const range = max - min || 1;
+    const isFlat = max === min;
 
     // Vertical padding to avoid clipping line/dots
     const paddingY = Math.min(10, Math.max(4, Math.round(height * 0.15)));
@@ -46,7 +47,7 @@ export function Sparkline({
       if (showAnomalies && value > threshold && value > mean * 1.5) {
         anomalyIndices.push(0);
       }
-      return { points, anomalyIndices, min, max, chartBottom, chartHeight };
+      return { points, anomalyIndices, min, max, chartBottom, chartHeight, isFlat: true };
     }
 
     const points = data
@@ -63,7 +64,7 @@ export function Sparkline({
       })
       .join(" ");
 
-    return { points, anomalyIndices, min, max, chartBottom, chartHeight };
+    return { points, anomalyIndices, min, max, chartBottom, chartHeight, isFlat };
   }, [data, width, height, showAnomalies]);
 
   if (!data.length) {
@@ -104,23 +105,25 @@ export function Sparkline({
         </mask>
       </defs>
 
-      {/* Fill area */}
-      <polygon
-        points={`0,${chartBottom} ${points} ${width},${chartBottom}`}
-        fill={`url(#sparkline-gradient-${uniqueId})`}
-        mask={`url(#sparkline-mask-${uniqueId})`}
-      />
+      {/* Fill area (skip when flat to avoid invisible zero-height polygon) */}
+      {!isFlat && (
+        <polygon
+          points={`0,${chartBottom} ${points} ${width},${chartBottom}`}
+          fill={`url(#sparkline-gradient-${uniqueId})`}
+          mask={`url(#sparkline-mask-${uniqueId})`}
+        />
+      )}
 
       {/* Line */}
       <polyline
         points={points}
         fill="none"
         stroke="currentColor"
-        strokeWidth="1.5"
+        strokeWidth={isFlat ? 2 : 1.5}
         strokeLinecap="round"
         strokeLinejoin="round"
-        opacity="0.8"
-        mask={`url(#sparkline-mask-${uniqueId})`}
+        opacity={isFlat ? 1 : 0.8}
+        {...(!isFlat ? { mask: `url(#sparkline-mask-${uniqueId})` } : {})}
       />
 
       {/* Live indicator dot at the end */}
