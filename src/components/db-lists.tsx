@@ -126,6 +126,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
     const [justClicked, setJustClicked] = useState(false);
     const [scrubVisual, setScrubVisual] = useState<number>(0); // visual bar, may lag behind
     const clickDelayRef = useRef<number | null>(null);
+    const overlayRef = useRef<HTMLDivElement | null>(null);
 
 
     const sortBy = useCallback(
@@ -166,6 +167,25 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
             clearInterval(id);
         };
     }, [sortBy]);
+
+    // Dismiss scrub overlay on outside click
+    useEffect(() => {
+        if (!scrubOverlay) return;
+        const handleOutside = (e: MouseEvent | TouchEvent) => {
+            if (!overlayRef.current) return;
+            const target = e.target as Node;
+            if (!overlayRef.current.contains(target)) {
+                setActiveScrubRow(null);
+                setScrubOverlay(null);
+            }
+        };
+        document.addEventListener('mousedown', handleOutside);
+        document.addEventListener('touchstart', handleOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleOutside);
+            document.removeEventListener('touchstart', handleOutside);
+        };
+    }, [scrubOverlay]);
 
     useEffect(() => {
         let cancelled = false;
@@ -1071,13 +1091,14 @@ header: () => <div className="w-[150px] text-right">Joined</div>,
             </Tabs>
 
             {/* Scrub overlay (fixed, outside table to avoid clipping) */}
-            {scrubOverlay && (
+                {scrubOverlay && (
                 <div
-                    className="fixed z-[100] w-[300px] -translate-x-1/2 bg-card border border-border rounded-lg p-3 shadow-xl"
+                    ref={overlayRef}
+className="fixed z-[100] w-[300px] -translate-x-1/2 bg-card border border-yellow-500/20 border-dashed rounded-lg p-3 shadow-xl"
                     style={{ left: scrubOverlay.left, top: scrubOverlay.top }}
                     onMouseLeave={() => { setActiveScrubRow(null); setScrubOverlay(null); }}
                 >
-                    <div className="flex justify-between items-center mb-2">
+<div className="flex justify-between items-center mb-3">
                         <span className="text-xs font-medium">Compare Range</span>
                         <button 
                             className="text-xs text-muted-foreground hover:text-foreground"
@@ -1086,7 +1107,7 @@ header: () => <div className="w-[150px] text-right">Joined</div>,
                             ×
                         </button>
                     </div>
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                         {/* Custom multicolor interactive progress bar */}
                         {(() => {
                             const { first, ath } = scrubOverlay;
@@ -1136,14 +1157,19 @@ header: () => <div className="w-[150px] text-right">Joined</div>,
                             };
                             
                             return (
-                                <div className="space-y-1">
-                                    <div className="flex justify-between items-center text-[10px] text-muted-foreground">
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center text-[10px] text-muted-foreground mb-2">
                                         <span>Projection</span>
-                                        <span className="font-semibold text-blue-600 dark:text-blue-400">{xToAth.toFixed(1)}× to ATH</span>
+                                        <span
+className="font-mono tabular-nums text-sm font-bold text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded ring-1 ring-green-500/30 bg-green-500/10"
+                                            style={{ textShadow: '0 0 6px rgba(34,197,94,0.3)' }}
+                                        >
+                                            {xToAth.toFixed(1)}× to ATH
+                                        </span>
                                     </div>
                                     {/* Custom interactive track */}
                                     <div 
-                                        className="relative h-2 w-full rounded-full bg-muted cursor-pointer select-none"
+                                        className="relative h-2 w-full mt-3 rounded-full bg-muted cursor-pointer select-none"
                                         onClick={handleTrackClick}
                                     >
                                         {/* Background muted layer */}
@@ -1154,7 +1180,7 @@ header: () => <div className="w-[150px] text-right">Joined</div>,
                                             className="absolute h-full rounded-full z-10"
                                             style={{
                                                 width: `${scrubProgress}%`,
-                                                background: 'linear-gradient(to right, rgb(234 179 8), rgb(59 130 246), rgb(147 51 234))',
+background: 'linear-gradient(to right, rgb(239, 68, 68) 0%, rgb(251, 146, 60) 25%, rgb(250, 204, 21) 50%, rgb(163, 230, 53) 75%, rgb(34, 197, 94) 100%)',
                                                 transitionProperty: 'width',
                                                 transitionDuration: isDragging ? '40ms' : '280ms',
                                                 transitionTimingFunction: isDragging ? 'linear' : 'cubic-bezier(.22,.61,.36,1)',
@@ -1177,19 +1203,21 @@ header: () => <div className="w-[150px] text-right">Joined</div>,
                                         
                                         {/* Draggable thumb */}
                                         <div
-                                            className="scrub-thumb absolute w-5 h-5 rounded-full border-2 border-white shadow-lg z-30 cursor-grab active:cursor-grabbing"
+                                            className="scrub-thumb absolute w-4 h-4 rounded-full border-2 shadow-lg z-30 cursor-grab active:cursor-grabbing"
                                             style={{
                                                 left: `${scrubProgress}%`,
                                                 top: '50%',
-                                                background: 'linear-gradient(to bottom right, rgb(255 255 255), rgb(229 231 235))',
+                                                background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
+                                                borderColor: '#eab308',
+                                                borderStyle: 'dashed',
                                                 transform: `translate(-50%, -50%) scale(${isDragging ? 1.15 : 1})`,
                                                 transitionProperty: isDragging ? 'transform, box-shadow' : 'left, transform, box-shadow',
                                                 transitionDuration: isDragging ? '100ms, 100ms' : '280ms, 100ms, 100ms',
                                                 transitionTimingFunction: isDragging ? 'ease, ease' : 'cubic-bezier(.22,.61,.36,1), ease, ease',
                                                 transitionDelay: isDragging ? '0ms, 0ms' : `${justClicked ? '120ms' : '0ms'}, 0ms, 0ms`,
                                                 boxShadow: isDragging 
-                                                    ? '0 4px 12px rgba(0,0,0,0.3), 0 0 0 3px rgba(59,130,246,0.3)' 
-                                                    : '0 2px 8px rgba(0,0,0,0.2)'
+                                                    ? '0 4px 10px rgba(0,0,0,0.25), 0 0 0 3px rgba(234,179,8,0.35), 0 0 10px rgba(234,179,8,0.4)' 
+                                                    : '0 2px 6px rgba(0,0,0,0.2), 0 0 0 2px rgba(234,179,8,0.25), 0 0 6px rgba(234,179,8,0.35)'
                                             }}
                                             onMouseDown={handleThumbMouseDown}
                                         />
