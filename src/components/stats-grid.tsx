@@ -58,7 +58,7 @@ export function StatsCard({ title, value, change, icon, changeLabel, showChange 
                 data={sparklineData} 
                 width={200} 
                 height={60} 
-                showAnomalies={true} 
+                showAnomalies={false} 
                 className="w-full h-auto" 
               />
             </div>
@@ -68,7 +68,7 @@ export function StatsCard({ title, value, change, icon, changeLabel, showChange 
       {/* Sparkline - Bottom on mobile */}
       {sparklineData && sparklineData.length > 0 && (
         <div className="md:hidden mt-3 -mb-1 opacity-60 text-yellow-500 w-full">
-          <Sparkline data={sparklineData} width={200} height={32} showAnomalies={true} className="w-full h-auto" />
+          <Sparkline data={sparklineData} width={200} height={32} showAnomalies={false} className="w-full h-auto" />
         </div>
       )}
     </div>

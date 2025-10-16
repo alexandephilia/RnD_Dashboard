@@ -123,6 +123,58 @@ export function Sparkline({
         mask={`url(#sparkline-mask-${uniqueId})`}
       />
 
+      {/* Live indicator dot at the end */}
+      {(() => {
+        const lastIdx = data.length - 1;
+        const lastValue = data[lastIdx];
+        const lastX = data.length === 1 ? width / 2 : (lastIdx / (data.length - 1)) * width;
+        const lastY = chartBottom - ((lastValue - min) / (Math.max(1, max - min))) * chartHeight;
+        
+        const dotR = Math.max(2.5, Math.round(height * 0.05));
+        const ringStart = Math.max(dotR + 2, Math.round(height * 0.1));
+        const ringEnd = Math.max(ringStart + 4, Math.round(height * 0.2));
+        
+        return (
+          <g>
+            {/* Pulse ring */}
+            <circle
+              cx={lastX}
+              cy={lastY}
+              r={ringStart}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              opacity="0.5"
+            >
+              <animate
+                attributeName="r"
+                from={ringStart}
+                to={ringEnd}
+                dur="1.5s"
+                repeatCount="indefinite"
+              />
+              <animate
+                attributeName="opacity"
+                from="0.5"
+                to="0"
+                dur="1.5s"
+                repeatCount="indefinite"
+              />
+            </circle>
+            {/* Live dot */}
+            <circle
+              cx={lastX}
+              cy={lastY}
+              r={dotR}
+              fill="currentColor"
+              stroke="currentColor"
+              strokeWidth="1"
+              opacity="0.9"
+            />
+          </g>
+        );
+      })()}
+
       {/* Anomaly dots */}
       {showAnomalies && (
         <g mask={`url(#sparkline-mask-${uniqueId})`}>
