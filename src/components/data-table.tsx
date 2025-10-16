@@ -15,6 +15,8 @@ import {
     RiArrowUpSLine,
     RiCloseCircleLine,
     RiSearch2Line,
+    RiArrowLeftSLine,
+    RiArrowRightSLine,
 } from "@remixicon/react";
 import {
     ColumnDef,
@@ -80,7 +82,7 @@ export function DataTable<TData>({
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         onSortingChange: setSorting,
-        enableSortingRemoval: false,
+        enableSortingRemoval: true,
         getPaginationRowModel: getPaginationRowModel(),
         onPaginationChange: setPagination,
         onColumnFiltersChange: setColumnFilters,
@@ -172,7 +174,7 @@ export function DataTable<TData>({
     return (
         <div className="space-y-4">
             {searchColumn && (
-                <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between gap-3">
                     <div className="relative flex-1 max-w-md">
                         <Input
                             id={`${id}-search`}
@@ -217,10 +219,26 @@ export function DataTable<TData>({
                             </button>
                         )}
                     </div>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSorting([])}
+                            disabled={sorting.length === 0}
+                            aria-label="Reset sorting"
+                            className={cn(
+                                "rounded-md border-yellow-500/40 text-yellow-600 hover:bg-yellow-500/10 hover:text-yellow-700",
+                                "dark:text-yellow-400 dark:border-yellow-400/40 dark:hover:bg-yellow-500/15",
+                                sorting.length === 0 && "opacity-40 hover:bg-transparent hover:text-inherit"
+                            )}
+                        >
+                            Reset
+                        </Button>
+                    </div>
                 </div>
             )}
 
-            <div className="rounded-lg border bg-card overflow-hidden">
+            <div className="rounded-lg border bg-card overflow-visible">
                 <div className="relative">
                     <div
                         ref={scrollContainerRef}
@@ -239,7 +257,7 @@ export function DataTable<TData>({
                                                     <button
                                                         type="button"
                                                         className={cn(
-                                                            "flex w-full items-center gap-2 text-left font-medium transition-colors",
+                                                            "flex w-full items-center gap-0 text-left font-medium transition-colors",
                                                             "hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                                                         )}
                                                         onClick={header.column.getToggleSortingHandler()}
@@ -251,16 +269,16 @@ export function DataTable<TData>({
                                                         {{
                                                             asc: (
                                                                 <RiArrowUpSLine
-                                                                    className="shrink-0"
-                                                                    size={16}
+                                                                    className="shrink-0 ml-1"
+                                                                    size={12}
                                                                     aria-hidden="true"
                                                                     suppressHydrationWarning
                                                                 />
                                                             ),
                                                             desc: (
                                                                 <RiArrowDownSLine
-                                                                    className="shrink-0"
-                                                                    size={16}
+                                                                    className="shrink-0 ml-1"
+                                                                    size={12}
                                                                     aria-hidden="true"
                                                                     suppressHydrationWarning
                                                                 />
@@ -322,8 +340,8 @@ export function DataTable<TData>({
             </div>
 
             {totalRows > 0 && (
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-sm text-muted-foreground" aria-live="polite">
+                <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs sm:text-sm text-muted-foreground max-w-[60%]" aria-live="polite">
                         Showing {" "}
                         <span className="font-medium text-foreground">{paginationRange.start}</span>
                         {" "}-{" "}
@@ -332,30 +350,56 @@ export function DataTable<TData>({
                         <span className="font-medium text-foreground">{totalRows}</span>
                         {" "}entries
                     </p>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 sm:gap-2">
+                        {/* Mobile: icon buttons */}
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8 sm:hidden"
+                            onClick={() => table.previousPage()}
+                            disabled={!table.getCanPreviousPage()}
+                            aria-label="Previous page"
+                        >
+                            <RiArrowLeftSLine size={16} aria-hidden="true" suppressHydrationWarning />
+                        </Button>
+
+                        {/* Desktop: text buttons */}
                         <Button
                             variant="outline"
                             size="sm"
+                            className="hidden sm:inline-flex"
                             onClick={() => table.previousPage()}
                             disabled={!table.getCanPreviousPage()}
-                            aria-label="Go to previous page"
+                            aria-label="Previous page"
                         >
                             Previous
                         </Button>
-                        <div className="flex items-center gap-1 text-sm">
-                            <span className="text-muted-foreground">Page</span>
-                            <span className="font-medium">
-                                {table.getState().pagination.pageIndex + 1}
-                            </span>
-                            <span className="text-muted-foreground">of</span>
-                            <span className="font-medium">{table.getPageCount()}</span>
+
+                        {/* Compact page counter */}
+                        <div className="text-[11px] sm:text-sm tabular-nums min-w-[56px] text-center text-muted-foreground">
+                            {table.getState().pagination.pageIndex + 1}/{table.getPageCount()}
                         </div>
+
+                        {/* Mobile: icon buttons */}
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8 sm:hidden"
+                            onClick={() => table.nextPage()}
+                            disabled={!table.getCanNextPage()}
+                            aria-label="Next page"
+                        >
+                            <RiArrowRightSLine size={16} aria-hidden="true" suppressHydrationWarning />
+                        </Button>
+
+                        {/* Desktop: text buttons */}
                         <Button
                             variant="outline"
                             size="sm"
+                            className="hidden sm:inline-flex"
                             onClick={() => table.nextPage()}
                             disabled={!table.getCanNextPage()}
-                            aria-label="Go to next page"
+                            aria-label="Next page"
                         >
                             Next
                         </Button>

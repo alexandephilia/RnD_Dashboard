@@ -8,6 +8,7 @@ interface SparklineProps {
   showAnomalies?: boolean;
   autoWidth?: boolean;
   autoHeight?: boolean;
+  rightInsetPx?: number; // leaves empty space on the right to avoid hugging card edge
 }
 
 export function Sparkline({
@@ -18,6 +19,7 @@ export function Sparkline({
   showAnomalies = true,
   autoWidth = true,
   autoHeight = true,
+  rightInsetPx = 0,
 }: SparklineProps) {
   const uniqueId = useId();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -35,10 +37,11 @@ export function Sparkline({
     ro.observe(el);
     return () => ro.disconnect();
   }, [autoWidth]);
-  const w = autoWidth ? measuredWidth ?? width : width;
+const w = autoWidth ? measuredWidth ?? width : width;
   const h = autoHeight ? Math.max(20, Math.min(64, Math.round(w * 0.22))) : height;
-  // Left-edge fade: ~20% of width, clamped between 24px and 80px for maximum spread
-  const fadePx = Math.min(80, Math.max(24, Math.round(w * 0.20)));
+  const innerW = Math.max(1, w - rightInsetPx);
+  // Left-edge fade: ~20% of inner width, clamped between 20px and 64px for maximum spread
+  const fadePx = Math.min(64, Math.max(20, Math.round(innerW * 0.20)));
   const { points, anomalyIndices, min, max, chartBottom, chartHeight, isFlat } = useMemo(() => {
     if (!data.length) return { points: "", anomalyIndices: [], min: 0, max: 0, chartTop: 0, chartBottom: h, chartHeight: h, isFlat: true };
 
@@ -65,7 +68,7 @@ export function Sparkline({
     if (data.length === 1) {
       const value = data[0];
       const y = chartBottom - ((value - min) / range) * chartHeight;
-      const points = `0,${y} ${w},${y}`; // draw a horizontal line across
+      const points = `0,${y} ${innerW},${y}`; // draw a horizontal line, leave right inset
       // Single point can be considered an anomaly check
       if (showAnomalies && value > threshold && value > mean * 1.5) {
         anomalyIndices.push(0);
@@ -75,7 +78,7 @@ export function Sparkline({
 
     const points = data
       .map((value, i) => {
-        const x = (i / (data.length - 1)) * w;
+        const x = (i / (data.length - 1)) * innerW;
         const y = chartBottom - ((value - min) / range) * chartHeight;
         
         // Detect anomalies (values > 2 standard deviations above mean)
@@ -88,7 +91,7 @@ export function Sparkline({
       .join(" ");
 
     return { points, anomalyIndices, min, max, chartBottom, chartHeight, isFlat };
-  }, [data, w, h, showAnomalies]);
+  }, [data, innerW, h, showAnomalies]);
 
   if (!data.length) {
     return (
@@ -135,7 +138,7 @@ export function Sparkline({
       {/* Fill area (skip when flat to avoid invisible zero-height polygon) */}
       {!isFlat && (
         <polygon
-          points={`0,${chartBottom} ${points} ${w},${chartBottom}`}
+          points={`0,${chartBottom} ${points} ${innerW},${chartBottom}`}
           fill={`url(#sparkline-gradient-${uniqueId})`}
           mask={`url(#sparkline-mask-${uniqueId})`}
         />
@@ -157,12 +160,12 @@ export function Sparkline({
       {(() => {
         const lastIdx = data.length - 1;
         const lastValue = data[lastIdx];
-        const lastX = (lastIdx / Math.max(1, data.length - 1)) * w; // always right edge when single point
+        const lastX = (lastIdx / Math.max(1, data.length - 1)) * innerW; // avoid hugging right edge
         const lastY = chartBottom - ((lastValue - min) / (Math.max(1, max - min))) * chartHeight;
         
-        const dotR = Math.max(2.5, Math.round(h * 0.05));
-        const ringStart = Math.max(dotR + 2, Math.round(h * 0.1));
-        const ringEnd = Math.max(ringStart + 4, Math.round(h * 0.2));
+        const dotR = Math.max(2.25, Math.round(h * 0.045));
+        const ringStart = Math.max(dotR + 1, Math.round(h * 0.09));
+        const ringEnd = Math.max(ringStart + 3, Math.round(h * 0.18));
         
         return (
           <g>
@@ -213,7 +216,7 @@ export function Sparkline({
             const ringStart = Math.max(dotR + 1, Math.round(height * 0.08));
             const ringEnd = Math.max(ringStart + 2, Math.round(height * 0.16));
             return anomalyIndices.map((idx) => {
-            const x = (idx / (data.length - 1)) * w;
+            const x = (idx / (data.length - 1)) * innerW;
             const value = data[idx];
             const y = chartBottom - ((value - min) / (Math.max(1, max - min))) * chartHeight;
             

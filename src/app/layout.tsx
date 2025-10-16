@@ -1,10 +1,10 @@
-import { Inter } from "next/font/google";
+import { JetBrains_Mono } from "next/font/google";
 
 import "./globals.css";
 
-const fontSans = Inter({
+const fontMono = JetBrains_Mono({
   subsets: ["latin"],
-  variable: "--font-sans",
+  variable: "--font-mono",
 });
 
 export default function RootLayout({
@@ -14,7 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark scheme-only-dark" suppressHydrationWarning>
-      <body className={`${fontSans.variable} font-sans antialiased`}>
+      <body className={`${fontMono.variable} font-mono antialiased`}>
         {children}
       </body>
     </html>

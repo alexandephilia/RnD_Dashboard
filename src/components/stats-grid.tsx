@@ -20,16 +20,30 @@ export function StatsCard({ title, value, change, icon, changeLabel, showChange 
   const trendColor = isPositive ? "text-yellow-500" : "text-red-500";
 
   return (
-    <div className="relative p-4 lg:p-5 group before:absolute before:inset-y-8 before:right-0 before:w-px before:bg-gradient-to-b before:from-input/30 before:via-input before:to-input/30 last:before:hidden">
+    <div className="relative overflow-hidden p-3 sm:p-4 lg:p-5 group rounded-lg border border-dashed border-yellow-500/20 bg-card/60">
+      {/* Subtle grid background with edge fades */}
+      <div
+        className="pointer-events-none absolute inset-0 rounded-lg text-foreground"
+        style={{
+          opacity: 0.01,
+          backgroundImage:
+            "repeating-linear-gradient(0deg,currentColor 0px,currentColor 1px,transparent 1px,transparent 14px),repeating-linear-gradient(90deg,currentColor 0px,currentColor 1px,transparent 1px,transparent 14px)",
+          WebkitMaskImage:
+            "linear-gradient(135deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.25) 15%, rgba(0,0,0,.85) 35%, rgba(0,0,0,1) 50%, rgba(0,0,0,.85) 65%, rgba(0,0,0,.25) 85%, rgba(0,0,0,0) 100%)",
+          maskImage:
+            "linear-gradient(135deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.25) 15%, rgba(0,0,0,.85) 35%, rgba(0,0,0,1) 50%, rgba(0,0,0,.85) 65%, rgba(0,0,0,.25) 85%, rgba(0,0,0,0) 100%)",
+        }}
+      />
       {/* Background sparkline layer */}
       {sparklineData && sparklineData.length >= 0 && (
         <div className="absolute inset-0 opacity-30 text-yellow-500/60 pointer-events-none overflow-hidden rounded-lg">
           <div className="w-full h-full flex items-center justify-end pr-4 lg:pr-5">
-            <div className="w-[50%] max-w-[300px] h-full flex items-center">
+            <div className="w-[45%] max-w-[260px] h-full flex items-center">
               <Sparkline 
                 data={sparklineData && sparklineData.length > 0 ? sparklineData : [0]} 
                 showAnomalies={false} 
-                className="w-full h-auto" 
+                className="w-full h-auto"
+                rightInsetPx={8}
               />
             </div>
           </div>
@@ -79,7 +93,7 @@ interface StatsGridProps {
 
 export function StatsGrid({ stats, periodLabel, showChange = true }: StatsGridProps) {
   return (
-    <div className="grid grid-cols-2 min-[1200px]:grid-cols-4 border border-border rounded-xl bg-gradient-to-br from-sidebar/60 to-sidebar">
+    <div className="grid grid-cols-2 min-[1200px]:grid-cols-4 gap-2 sm:gap-3 border border-border rounded-xl bg-card p-2 sm:p-3">
       {stats.map((stat) => (
         <StatsCard key={stat.title} {...stat} changeLabel={stat.changeLabel ?? periodLabel} showChange={showChange} />
       ))}

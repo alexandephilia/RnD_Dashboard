@@ -1,5 +1,6 @@
 "use client";
 
+import { Press_Start_2P } from "next/font/google";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { CheckIcon, CopyIcon, DownloadIcon, EyeIcon } from "lucide-react";
@@ -16,6 +17,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { JsonTreeViewer } from "@/components/json-tree-viewer";
 import { cn } from "@/lib/utils";
+
+const pressStart = Press_Start_2P({ weight: "400", subsets: ["latin"] });
 
 type GenericRecord = Record<string, unknown>;
 
@@ -110,6 +113,15 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
     );
     const [copied, setCopied] = useState(false);
     const [activeTab, setActiveTab] = useState<TabKey>("token-calls");
+    const [activeScrubRow, setActiveScrubRow] = useState<string | null>(null);
+    const [scrubValue, setScrubValue] = useState<number>(0);
+    const [scrubOverlay, setScrubOverlay] = useState<{
+        rowId: string;
+        first: number;
+        ath: number;
+        left: number;
+        top: number;
+    } | null>(null);
 
     const sortBy = useCallback(
         (records: GenericRecord[], getTimestamp: (record: GenericRecord) => number) =>
@@ -254,27 +266,31 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
         document.body.removeChild(link);
     }, []);
 
-    // Calculate percentiles for post_count tiers
+    // Calculate percentiles for post_count tiers (used for percentile-based chips)
     const postTiers = useMemo(() => {
         const counts = liveCalls
             .map(call => toNumber(call.post_count) ?? 0)
             .filter(n => n > 0)
             .sort((a, b) => a - b);
+
+        const getPct = (p: number) => counts.length ? (counts[Math.floor(counts.length * p)] || 0) : 0;
         
-        if (counts.length === 0) return { p25: 0, p50: 0, p90: 0 };
-        
-        const p25 = counts[Math.floor(counts.length * 0.25)] || 0;
-        const p50 = counts[Math.floor(counts.length * 0.50)] || 0;
-        const p90 = counts[Math.floor(counts.length * 0.90)] || 0;
-        
-        return { p25, p50, p90 };
+        return {
+            p10: getPct(0.10),
+            p15: getPct(0.15),
+            p25: getPct(0.25),
+            p50: getPct(0.50),
+            p75: getPct(0.75),
+            p90: getPct(0.90),
+            sampleSize: counts.length,
+        };
     }, [liveCalls]);
 
     const tokenColumns = useMemo<ColumnDef<GenericRecord, unknown>[]>(() => {
         return [
             {
                 id: "token",
-                header: () => <div className="w-[220px] text-left">Token</div>,
+header: () => <div className="w-[220px] text-left">Token</div>,
                 accessorFn: (row) => {
                     const info = row.token_info as GenericRecord | undefined;
                     const name = typeof info?.name === "string" ? info.name : "";
@@ -335,20 +351,25 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
             },
             {
                 accessorKey: "group_id",
-                header: () => <div className="w-[140px] text-left">Group ID</div>,
+header: () => <div className="w-[140px] text-left">Group ID</div>,
                 cell: ({ row }) => (
                     <div className="w-[140px] text-left">
-                        <span className="font-mono text-xs">
-                            {typeof row.original.group_id === "string"
-                                ? row.original.group_id
-                                : "—"}
-                        </span>
+                        {typeof row.original.group_id === "string" && row.original.group_id !== "—" ? (
+                            <Badge 
+                                variant="secondary" 
+                                className="w-fit font-mono text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                            >
+                                {row.original.group_id}
+                            </Badge>
+                        ) : (
+                            <span className="font-mono text-xs text-muted-foreground">—</span>
+                        )}
                     </div>
                 ),
             },
             {
                 id: "poster",
-                header: () => <div className="w-[160px] text-left">First Poster</div>,
+header: () => <div className="w-[160px] text-center">First Poster</div>,
                 accessorFn: (row) => {
                     const poster = row.first_poster as GenericRecord | undefined;
                     const firstName = typeof poster?.first_name === "string" ? poster.first_name : "";
@@ -368,9 +389,18 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                             ? poster.username
                             : "—";
                     return (
-                        <div className="flex w-[160px] flex-col">
+                        <div className="flex w-[160px] flex-col items-center">
                             <span className="truncate text-sm font-medium">{displayName}</span>
-                            <span className="text-xs text-muted-foreground">@{username}</span>
+                            {username !== "—" ? (
+                                <Badge 
+                                    variant="secondary" 
+                                    className="w-fit text-[10px] font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                                >
+                                    @{username}
+                                </Badge>
+                            ) : (
+                                <span className="text-xs text-muted-foreground">@{username}</span>
+                            )}
                         </div>
                     );
                 },
@@ -378,26 +408,70 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
             },
             {
                 accessorKey: "first_mcap",
-                header: () => <div className="w-[120px] text-right">First Called</div>,
-                cell: ({ row }) => (
-                    <div className="w-[120px] text-right">
-                        <span className="tabular-nums font-medium">
-                            {formatMcap(row.original.first_mcap)}
-                        </span>
-                    </div>
-                ),
+header: () => <div className="w-[120px] text-right">First Called</div>,
+                cell: ({ row }) => {
+                    const firstMcap = toNumber(row.original.first_mcap);
+                    const athMcap = toNumber(row.original.ath_mcap);
+                    const rowId = `${row.original.token_address}-${row.original.group_id}`;
+                    const isActive = activeScrubRow === rowId;
+
+                    const openOverlay = (target: HTMLElement) => {
+                        const rect = target.getBoundingClientRect();
+                        const left = rect.left + window.scrollX + rect.width / 2;
+                        const top = rect.bottom + window.scrollY + 8;
+                        setScrubOverlay({ rowId, first: firstMcap!, ath: athMcap!, left, top });
+                    };
+
+                    const handleActivate = (e?: React.MouseEvent<HTMLElement>) => {
+                        if (firstMcap && athMcap) {
+                            setActiveScrubRow(rowId);
+                            const firstPct = Math.min(100, Math.max(0, (firstMcap / athMcap) * 100));
+                            setScrubValue(Number.isFinite(firstPct) ? firstPct : 0);
+                            if (e) openOverlay(e.currentTarget as HTMLElement);
+                        }
+                    };
+
+                    const handleDeactivate = () => {
+                        setActiveScrubRow(null);
+                        setScrubValue(0);
+                        setScrubOverlay(null);
+                    };
+
+                    return (
+                        <div className="relative w-[120px] text-right">
+                            <button
+                                className="tabular-nums font-medium hover:text-yellow-600 dark:hover:text-yellow-400 transition-colors cursor-pointer"
+                                onClick={(e) => handleActivate(e)}
+                                onMouseEnter={(e) => handleActivate(e)}
+                                disabled={!firstMcap || !athMcap}
+                            >
+                                {formatMcap(row.original.first_mcap)}
+                            </button>
+                        </div>
+                    );
+                },
             },
             {
                 accessorKey: "ath_mcap",
-                header: () => <div className="w-[160px] text-right">ATH</div>,
+header: () => <div className="w-[160px] text-right">ATH</div>,
                 cell: ({ row }) => {
                     const ath = toNumber(row.original.ath_mcap);
                     const last = toNumber(row.original.last_mcap);
+                    const first = toNumber(row.original.first_mcap);
+                    const rowId = `${row.original.token_address}-${row.original.group_id}`;
+                    const isScrubbingThis = activeScrubRow === rowId;
                     
                     // Calculate progress percentage (how close last_mcap is to ATH)
                     const progressPct = ath && last && ath > 0 
                         ? Math.min(100, (last / ath) * 100) 
                         : null;
+                    
+                    // Calculate scrub position for visual feedback
+                    const scrubPct = isScrubbingThis && Number.isFinite(scrubValue)
+                        ? Math.min(100, Math.max(0, scrubValue))
+                        : null;
+                        
+                    const firstPct = first && ath ? Math.min(100, (first / ath) * 100) : null;
                     
                     const isAtOrAboveATH = progressPct !== null && progressPct >= 99.5;
                     
@@ -416,16 +490,73 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                                                 background: 'linear-gradient(to right, rgb(239, 68, 68) 0%, rgb(251, 146, 60) 25%, rgb(250, 204, 21) 50%, rgb(163, 230, 53) 75%, rgb(34, 197, 94) 100%)'
                                             }}
                                         />
-                                        <div
-                                            className="relative h-full transition-all duration-300"
-                                            style={{ 
-                                                width: `${progressPct}%`,
-                                                background: 'linear-gradient(to right, rgb(239, 68, 68) 0%, rgb(251, 146, 60) 25%, rgb(250, 204, 21) 50%, rgb(163, 230, 53) 75%, rgb(34, 197, 94) 100%)'
-                                            }}
-                                        />
+                                        
+                                        {/* Show scrub overlay when active */}
+                                        {isScrubbingThis && scrubPct !== null && (
+                                            <>
+                                                {/* Scrub glow underlay */}
+                                                <div
+                                                    className="absolute top-1/2 -translate-y-1/2 h-3 rounded-full"
+                                                    style={{ 
+                                                        width: `${scrubPct}%`,
+                                                        background: 'linear-gradient(to right, rgb(59, 130, 246) 0%, rgb(147, 51, 234) 100%)',
+                                                        filter: 'blur(4px)',
+                                                        opacity: 0.4,
+                                                        transition: 'width 150ms ease-out'
+                                                    }}
+                                                />
+                                                {/* Scrub bar */}
+                                                <div
+                                                    className="relative h-full rounded-full"
+                                                    style={{ 
+                                                        width: `${scrubPct}%`,
+                                                        background: 'linear-gradient(to right, rgb(59, 130, 246) 0%, rgb(147, 51, 234) 100%)',
+                                                        transition: 'width 150ms ease-out'
+                                                    }}
+                                                />
+                                                {/* First Called pin */}
+                                                {firstPct !== null && (
+                                                    <div
+                                                        className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 bg-yellow-500 rounded-full"
+                                                        style={{ left: `${firstPct}%` }}
+                                                    />
+                                                )}
+                                            </>
+                                        )}
+                                        
+                                        {/* Default progress when not scrubbing */}
+                                        {!isScrubbingThis && (
+                                            <>
+                                                {/* Default glow underlay */}
+                                                <div
+                                                    className="absolute top-1/2 -translate-y-1/2 h-3 rounded-full"
+                                                    style={{ 
+                                                        width: `${progressPct}%`,
+                                                        background: 'linear-gradient(to right, rgb(239, 68, 68) 0%, rgb(251, 146, 60) 25%, rgb(250, 204, 21) 50%, rgb(163, 230, 53) 75%, rgb(34, 197, 94) 100%)',
+                                                        filter: 'blur(6px)',
+                                                        opacity: 0.35,
+                                                        transition: 'width 500ms ease-in-out'
+                                                    }}
+                                                />
+                                                {/* Default foreground progress bar */}
+                                                <div
+                                                    className="relative h-full rounded-full"
+                                                    style={{ 
+                                                        width: `${progressPct}%`,
+                                                        background: 'linear-gradient(to right, rgb(239, 68, 68) 0%, rgb(251, 146, 60) 25%, rgb(250, 204, 21) 50%, rgb(163, 230, 53) 75%, rgb(34, 197, 94) 100%)',
+                                                        transition: 'width 500ms ease-in-out'
+                                                    }}
+                                                />
+                                            </>
+                                        )}
                                     </div>
                                     <span className="text-[10px] text-muted-foreground tabular-nums">
-                                        {isAtOrAboveATH ? "At ATH" : `${progressPct.toFixed(0)}% of ATH`}
+                                        {isScrubbingThis && scrubPct !== null
+                                            ? `${scrubPct.toFixed(0)}% of ATH (scrub)`
+                                            : isAtOrAboveATH 
+                                                ? "At ATH" 
+                                                : `${progressPct.toFixed(0)}% of ATH`
+                                        }
                                     </span>
                                 </div>
                             )}
@@ -435,33 +566,51 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
             },
             {
                 accessorKey: "post_count",
-                header: () => <div className="w-[90px] text-center">Posts</div>,
+header: () => <div className="w-[90px] text-center">Posts</div>,
                 cell: ({ row }) => {
                     const count = toNumber(row.original.post_count) ?? 0;
-                    
-                    // Determine tier based on percentiles
+
+                    // Percentile-based labeling with small-sample fallback
                     let tier: string;
                     let tierColor: string;
-                    
+
                     if (count === 0) {
                         tier = "None";
                         tierColor = "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
-                    } else if (count < postTiers.p25) {
-                        tier = "Low";
-                        tierColor = "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
-                    } else if (count < postTiers.p50) {
-                        tier = "Med";
-                        tierColor = "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
-                    } else if (count < postTiers.p90) {
-                        tier = "High";
-                        tierColor = "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
+                    } else if (postTiers.sampleSize < 20) {
+                        // Absolute buckets for small datasets
+                        if (count === 1) {
+                            tier = "Single";
+                            tierColor = "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
+                        } else if (count <= 3) {
+                            tier = "Few";
+                            tierColor = "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
+                        } else if (count <= 7) {
+                            tier = "Some";
+                            tierColor = "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+                        } else {
+                            tier = "Many";
+                            tierColor = "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
+                        }
                     } else {
-                        tier = "Ultra";
-                        tierColor = "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+                        // Percentile mapping
+                        if (count >= postTiers.p90) {
+                            tier = "Top 10%";
+                            tierColor = "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+                        } else if (count >= postTiers.p75) {
+                            tier = "Top 25%";
+                            tierColor = "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
+                        } else if (count < postTiers.p15) {
+                            tier = "Bottom 15%";
+                            tierColor = "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
+                        } else {
+                            tier = "Mid 50%";
+                            tierColor = "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
+                        }
                     }
-                    
+
                     return (
-                        <div className="flex flex-col items-center gap-1 min-w-[60px]">
+                        <div className="flex w-[90px] flex-col items-center gap-1 min-w-[60px]">
                             <Badge 
                                 variant="secondary" 
                                 className={cn(
@@ -480,7 +629,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
             },
             {
                 accessorKey: "last_updated",
-                header: () => <div className="w-[150px] text-right">Last Updated</div>,
+header: () => <div className="w-[150px] text-right">Last Updated</div>,
                 cell: ({ row }) => (
                     <div className="w-[150px] text-right">
                         <span className="whitespace-nowrap text-xs text-muted-foreground">
@@ -510,7 +659,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
         ];
     }, [handleViewDetails, postTiers]);
 
-    // Calculate percentiles for group monthly total posts
+    // Calculate percentiles for group monthly total posts (for percentile-based chips)
     const groupMonthlyPostTiers = useMemo(() => {
         const totals = liveGroupMonthly
             .map(group => {
@@ -521,21 +670,25 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
             })
             .filter(n => n > 0)
             .sort((a, b) => a - b);
-        
-        if (totals.length === 0) return { p25: 0, p50: 0, p90: 0 };
-        
-        const p25 = totals[Math.floor(totals.length * 0.25)] || 0;
-        const p50 = totals[Math.floor(totals.length * 0.50)] || 0;
-        const p90 = totals[Math.floor(totals.length * 0.90)] || 0;
-        
-        return { p25, p50, p90 };
+
+        const getPct = (p: number) => totals.length ? (totals[Math.floor(totals.length * p)] || 0) : 0;
+
+        return {
+            p10: getPct(0.10),
+            p15: getPct(0.15),
+            p25: getPct(0.25),
+            p50: getPct(0.50),
+            p75: getPct(0.75),
+            p90: getPct(0.90),
+            sampleSize: totals.length,
+        };
     }, [liveGroupMonthly]);
 
     const userColumns = useMemo<ColumnDef<GenericRecord, unknown>[]>(() => {
         return [
             {
                 id: "user",
-                header: () => <div className="w-[180px] text-left">User</div>,
+header: () => <div className="w-[180px] text-left">User</div>,
                 accessorFn: (row) => {
                     const firstName = typeof row.first_name === "string" ? row.first_name : "";
                     const username = typeof row.username === "string" ? row.username : "";
@@ -561,7 +714,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
             },
             {
                 accessorKey: "user_id",
-                header: () => <div className="w-[140px] text-left">User ID</div>,
+header: () => <div className="w-[140px] text-left">User ID</div>,
                 cell: ({ row }) => (
                     <div className="w-[140px] text-left">
                         <span className="font-mono text-xs">
@@ -574,7 +727,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
             },
             {
                 accessorKey: "is_active",
-                header: () => <div className="w-[100px] text-center">Status</div>,
+header: () => <div className="w-[100px] text-center">Status</div>,
                 cell: ({ row }) => {
                     const isActive = row.original.is_active === true;
                     const statusColor = isActive
@@ -598,7 +751,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
             },
             {
                 accessorKey: "joined_at",
-                header: () => <div className="w-[150px] text-right">Joined</div>,
+header: () => <div className="w-[150px] text-right">Joined</div>,
                 cell: ({ row }) => (
                     <div className="w-[150px] text-right">
                         <span className="whitespace-nowrap text-xs text-muted-foreground">
@@ -739,28 +892,43 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                     const total = Array.isArray(tokens)
                         ? tokens.reduce((sum, t) => sum + (toNumber(t.post_count) || 0), 0)
                         : 0;
-                    
-                    // Determine tier based on percentiles
+
                     let tier: string;
                     let tierColor: string;
-                    
+
                     if (total === 0) {
                         tier = "None";
                         tierColor = "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
-                    } else if (total < groupMonthlyPostTiers.p25) {
-                        tier = "Low";
-                        tierColor = "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
-                    } else if (total < groupMonthlyPostTiers.p50) {
-                        tier = "Med";
-                        tierColor = "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
-                    } else if (total < groupMonthlyPostTiers.p90) {
-                        tier = "High";
-                        tierColor = "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
+                    } else if (groupMonthlyPostTiers.sampleSize < 20) {
+                        if (total === 1) {
+                            tier = "Single";
+                            tierColor = "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
+                        } else if (total <= 3) {
+                            tier = "Few";
+                            tierColor = "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
+                        } else if (total <= 7) {
+                            tier = "Some";
+                            tierColor = "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+                        } else {
+                            tier = "Many";
+                            tierColor = "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
+                        }
                     } else {
-                        tier = "Ultra";
-                        tierColor = "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+                        if (total >= groupMonthlyPostTiers.p90) {
+                            tier = "Top 10%";
+                            tierColor = "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+                        } else if (total >= groupMonthlyPostTiers.p75) {
+                            tier = "Top 25%";
+                            tierColor = "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
+                        } else if (total < groupMonthlyPostTiers.p15) {
+                            tier = "Bottom 15%";
+                            tierColor = "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
+                        } else {
+                            tier = "Mid 50%";
+                            tierColor = "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
+                        }
                     }
-                    
+
                     return (
                         <div className="flex w-[100px] flex-col items-center gap-1">
                             <Badge 
@@ -821,8 +989,8 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                 className="w-full"
             >
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                    <h2 className="text-lg font-semibold">Explore Data</h2>
-                    <TabsList className="relative flex w-full max-w-md gap-2 -mb-[11px]">
+                    <h2 className={`text-sm font-semibold ${pressStart.className}`}>Explore Data</h2>
+                    <TabsList className="relative flex w-full max-w-md gap-2 -mb-[10px] lg:ml-auto">
                             <span
                                 className="pointer-events-none absolute bottom-0 left-0 h-full rounded-t-lg border border-b-0 border-border bg-muted/20 shadow-sm transition-all duration-500 ease-in-out"
                                 style={{
@@ -834,19 +1002,19 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                             />
                             <TabsTrigger
                                 value="token-calls"
-                                className="relative z-10 flex-1 border-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-colors duration-300 delay-100 data-[state=active]:text-foreground"
+                                className="relative z-10 flex-1 border-transparent px-2 py-2 text-xs sm:px-4 sm:text-sm font-medium text-muted-foreground transition-colors duration-300 delay-100 data-[state=active]:text-foreground"
                             >
                                 Token Calls
                             </TabsTrigger>
                             <TabsTrigger
                                 value="users"
-                                className="relative z-10 flex-1 border-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-colors duration-300 delay-100 data-[state=active]:text-foreground"
+                                className="relative z-10 flex-1 border-transparent px-2 py-2 text-xs sm:px-4 sm:text-sm font-medium text-muted-foreground transition-colors duration-300 delay-100 data-[state=active]:text-foreground"
                             >
                                 Users
                             </TabsTrigger>
                             <TabsTrigger
                                 value="group-monthly"
-                                className="relative z-10 flex-1 border-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-colors duration-300 delay-100 data-[state=active]:text-foreground"
+                                className="relative z-10 flex-1 border-transparent px-2 py-2 text-xs sm:px-4 sm:text-sm font-medium text-muted-foreground transition-colors duration-300 delay-100 data-[state=active]:text-foreground"
                             >
                                 Group Monthly
                             </TabsTrigger>
@@ -857,7 +1025,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                     <div className="rounded-b-lg border border-border bg-card">
                         <div className="flex flex-col gap-3 border-b bg-muted/20 px-6 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                             <div>
-                                <h3 className="text-lg font-semibold">Token Calls</h3>
+                                <h3 className={`text-sm font-semibold ${pressStart.className}`}>Token Calls</h3>
                                 <p className="text-sm text-muted-foreground">
                                     Most recent token activity with live updates every 10 seconds.
                                 </p>
@@ -891,7 +1059,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                     <div className="rounded-b-lg border border-border bg-card">
                         <div className="flex flex-col gap-3 border-b bg-muted/20 px-6 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                             <div>
-                                <h3 className="text-lg font-semibold">Users</h3>
+                                <h3 className={`text-sm font-semibold ${pressStart.className}`}>Users</h3>
                                 <p className="text-sm text-muted-foreground">
                                     Latest users interacting with the bot and their status.
                                 </p>
@@ -925,7 +1093,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                     <div className="rounded-b-lg border border-border bg-card">
                         <div className="flex flex-col gap-3 border-b bg-muted/20 px-6 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                             <div>
-                                <h3 className="text-lg font-semibold">Group Monthly Tokens</h3>
+                                <h3 className={`text-sm font-semibold ${pressStart.className}`}>Group Monthly Tokens</h3>
                                 <p className="text-sm text-muted-foreground">
                                     Aggregated monthly metrics per group with token counts.
                                 </p>
@@ -955,6 +1123,54 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                     </div>
                 </TabsContent>
             </Tabs>
+
+            {/* Scrub overlay (fixed, outside table to avoid clipping) */}
+            {scrubOverlay && (
+                <div
+                    className="fixed z-[100] w-[300px] -translate-x-1/2 bg-card border border-border rounded-lg p-3 shadow-xl"
+                    style={{ left: scrubOverlay.left, top: scrubOverlay.top }}
+                    onMouseLeave={() => { setActiveScrubRow(null); setScrubOverlay(null); }}
+                >
+                    <div className="flex justify-between items-center mb-2">
+                        <span className="text-xs font-medium">Compare Range</span>
+                        <button 
+                            className="text-xs text-muted-foreground hover:text-foreground"
+                            onClick={() => { setActiveScrubRow(null); setScrubOverlay(null); }}
+                        >
+                            ×
+                        </button>
+                    </div>
+                    <div className="space-y-2">
+                        <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            value={scrubValue}
+                            onChange={(e) => setScrubValue(Number(e.target.value))}
+                            className="w-full h-1 bg-muted rounded-lg appearance-none cursor-pointer"
+                        />
+                        {(() => {
+                            const { first, ath } = scrubOverlay;
+                            const current = first + (ath - first) * (scrubValue / 100);
+                            const liftNeeded = current > 0 ? ((ath / current - 1) * 100) : 0;
+                            const fromFirst = first > 0 ? ((current / first - 1) * 100) : 0;
+                            return (
+                                <>
+                                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                                        <span>First: {formatMcap(first)}</span>
+                                        <span>Current: {formatMcap(current)}</span>
+                                        <span>ATH: {formatMcap(ath)}</span>
+                                    </div>
+                                    <div className="text-[10px] text-center space-y-1">
+                                        <div>Lift needed: <span className="font-medium text-green-600 dark:text-green-400">{liftNeeded.toFixed(1)}%</span></div>
+                                        <div>From First: <span className="font-medium text-blue-600 dark:text-blue-400">{fromFirst.toFixed(1)}%</span></div>
+                                    </div>
+                                </>
+                            );
+                        })()}
+                    </div>
+                </div>
+            )}
 
             <Sheet open={open} onOpenChange={setOpen}>
                 <SheetContent side="right" className="sm:max-w-2xl max-h-screen flex flex-col">
