@@ -52,8 +52,16 @@ export function StatsCard({ title, value, change, icon, changeLabel, showChange 
         </div>
         {/* Sparkline - Right side on tablet/desktop */}
         {sparklineData && sparklineData.length > 0 && (
-          <div className="hidden md:flex items-center opacity-70 text-yellow-500 relative z-0">
-            <Sparkline data={sparklineData} width={180} height={60} showAnomalies={true} />
+          <div className="hidden md:flex items-center opacity-70 text-yellow-500 flex-shrink min-w-[80px] max-w-[280px]">
+            <div className="w-full">
+              <Sparkline 
+                data={sparklineData} 
+                width={200} 
+                height={60} 
+                showAnomalies={true} 
+                className="w-full h-auto" 
+              />
+            </div>
           </div>
         )}
       </div>

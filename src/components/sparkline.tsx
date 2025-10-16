@@ -15,12 +15,19 @@ export function Sparkline({
   className = "",
   showAnomalies = true,
 }: SparklineProps) {
-  const { points, anomalyIndices, min, max } = useMemo(() => {
-    if (!data.length) return { points: "", anomalyIndices: [], min: 0, max: 0 };
+  const uniqueId = useMemo(() => Math.random().toString(36).substr(2, 9), []);
+  const { points, anomalyIndices, min, max, chartTop, chartBottom, chartHeight } = useMemo(() => {
+    if (!data.length) return { points: "", anomalyIndices: [], min: 0, max: 0, chartTop: 0, chartBottom: height, chartHeight: height };
 
     const min = Math.min(...data);
     const max = Math.max(...data);
     const range = max - min || 1;
+
+    // Vertical padding to avoid clipping line/dots
+    const paddingY = Math.min(10, Math.max(4, Math.round(height * 0.15)));
+    const chartTop = paddingY;
+    const chartBottom = height - paddingY;
+    const chartHeight = Math.max(1, chartBottom - chartTop);
 
     // Calculate mean and standard deviation for anomaly detection
     const mean = data.reduce((sum, v) => sum + v, 0) / data.length;
@@ -32,7 +39,7 @@ export function Sparkline({
     const points = data
       .map((value, i) => {
         const x = (i / (data.length - 1)) * width;
-        const y = height - ((value - min) / range) * height;
+        const y = chartBottom - ((value - min) / range) * chartHeight;
         
         // Detect anomalies (values > 2 standard deviations above mean)
         if (showAnomalies && value > threshold && value > mean * 1.5) {
@@ -43,7 +50,7 @@ export function Sparkline({
       })
       .join(" ");
 
-    return { points, anomalyIndices, min, max };
+    return { points, anomalyIndices, min, max, chartTop, chartBottom, chartHeight };
   }, [data, width, height, showAnomalies]);
 
   if (!data.length) {
@@ -66,16 +73,29 @@ export function Sparkline({
     <svg width={width} height={height} className={className} viewBox={`0 0 ${width} ${height}`}>
       {/* Gradient fill under the line */}
       <defs>
-        <linearGradient id="sparkline-gradient" x1="0" x2="0" y1="0" y2="1">
+        <linearGradient id={`sparkline-gradient-${uniqueId}`} x1="0" x2="0" y1="0" y2="1">
           <stop offset="0%" stopColor="currentColor" stopOpacity="0.2" />
           <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
         </linearGradient>
+        
+        {/* Horizontal fade mask for left/right edges */}
+        <linearGradient id={`sparkline-fade-mask-${uniqueId}`} x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0%" stopColor="white" stopOpacity="0" />
+          <stop offset="5%" stopColor="white" stopOpacity="1" />
+          <stop offset="95%" stopColor="white" stopOpacity="1" />
+          <stop offset="100%" stopColor="white" stopOpacity="0" />
+        </linearGradient>
+        
+        <mask id={`sparkline-mask-${uniqueId}`}>
+          <rect width="100%" height="100%" fill={`url(#sparkline-fade-mask-${uniqueId})`} />
+        </mask>
       </defs>
 
       {/* Fill area */}
       <polygon
-        points={`0,${height} ${points} ${width},${height}`}
-        fill="url(#sparkline-gradient)"
+        points={`0,${chartBottom} ${points} ${width},${chartBottom}`}
+        fill={`url(#sparkline-gradient-${uniqueId})`}
+        mask={`url(#sparkline-mask-${uniqueId})`}
       />
 
       {/* Line */}
@@ -87,53 +107,63 @@ export function Sparkline({
         strokeLinecap="round"
         strokeLinejoin="round"
         opacity="0.8"
+        mask={`url(#sparkline-mask-${uniqueId})`}
       />
 
       {/* Anomaly dots */}
-      {showAnomalies && anomalyIndices.map((idx) => {
-        const x = (idx / (data.length - 1)) * width;
-        const value = data[idx];
-        const y = height - ((value - min) / (max - min || 1)) * height;
-        
-        return (
-          <g key={idx}>
-            {/* Pulse ring */}
-            <circle
-              cx={x}
-              cy={y}
-              r="4"
-              fill="none"
-              stroke="rgb(234, 179, 8)"
-              strokeWidth="1"
-              opacity="0.4"
-            >
-              <animate
-                attributeName="r"
-                from="4"
-                to="8"
-                dur="2s"
-                repeatCount="indefinite"
-              />
-              <animate
-                attributeName="opacity"
-                from="0.4"
-                to="0"
-                dur="2s"
-                repeatCount="indefinite"
-              />
-            </circle>
-            {/* Dot */}
-            <circle
-              cx={x}
-              cy={y}
-              r="2.5"
-              fill="rgb(234, 179, 8)"
-              stroke="rgb(253, 224, 71)"
-              strokeWidth="1"
-            />
-          </g>
-        );
-      })}
+      {showAnomalies && (
+        <g mask={`url(#sparkline-mask-${uniqueId})`}>
+          {(() => {
+            const dotR = Math.max(2, Math.round(height * 0.04));
+            const ringStart = Math.max(dotR + 1, Math.round(height * 0.08));
+            const ringEnd = Math.max(ringStart + 2, Math.round(height * 0.16));
+            return anomalyIndices.map((idx) => {
+            const x = (idx / (data.length - 1)) * width;
+            const value = data[idx];
+            const y = chartBottom - ((value - min) / (Math.max(1, max - min))) * chartHeight;
+            
+            return (
+              <g key={idx}>
+                {/* Pulse ring */}
+                <circle
+                  cx={x}
+                  cy={y}
+                  r={ringStart}
+                  fill="none"
+                  stroke="rgb(234, 179, 8)"
+                  strokeWidth="1"
+                  opacity="0.4"
+                >
+                  <animate
+                    attributeName="r"
+                    from={ringStart}
+                    to={ringEnd}
+                    dur="2s"
+                    repeatCount="indefinite"
+                  />
+                  <animate
+                    attributeName="opacity"
+                    from="0.4"
+                    to="0"
+                    dur="2s"
+                    repeatCount="indefinite"
+                  />
+                </circle>
+                {/* Dot */}
+                <circle
+                  cx={x}
+                  cy={y}
+                  r={dotR}
+                  fill="rgb(234, 179, 8)"
+                  stroke="rgb(253, 224, 71)"
+                  strokeWidth="1"
+                />
+              </g>
+            );
+            });
+          })()}
+        </g>
+      )}
     </svg>
   );
 }

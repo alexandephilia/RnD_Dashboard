@@ -259,13 +259,6 @@ export default async function Page() {
         calls: statsSnapshot?.calls_total ?? tokenCallsPlain.length,
     } as const;
 
-    const gains24h = {
-        groups: statsSnapshot?.groups_24h ?? groupsWin.curr,
-        users: statsSnapshot?.users_24h ?? usersWin.curr,
-        tokens: statsSnapshot?.tokens_24h ?? tokensWin.curr,
-        calls: statsSnapshot?.calls_24h ?? callsWin.curr,
-    } as const;
-
     // Generate initial sparkline data (simulated trend with some variance)
     const generateSparkline = (baseValue: number, points = 24) => {
         const data: number[] = [];
@@ -283,6 +276,13 @@ export default async function Page() {
         }
         return data;
     };
+
+    const gains24h = {
+        groups: statsSnapshot?.groups_24h ?? groupsWin.curr,
+        users: statsSnapshot?.users_24h ?? usersWin.curr,
+        tokens: statsSnapshot?.tokens_24h ?? tokensWin.curr,
+        calls: statsSnapshot?.calls_24h ?? callsWin.curr,
+    } as const;
 
     const stats = [
         {
