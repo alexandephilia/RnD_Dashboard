@@ -67,11 +67,11 @@ export function DataTable<TData>({
     const showRightFade = scrollState.canScrollHorizontally && scrollState.isScrolledRight;
     const leftFadeStyle: CSSProperties = {
         backgroundImage:
-            "linear-gradient(to right, var(--color-card) 0%, var(--color-card) 55%, transparent 100%)",
+            "linear-gradient(to right, var(--color-card) 0%, var(--color-card) 20%, transparent 90%)",
     };
     const rightFadeStyle: CSSProperties = {
         backgroundImage:
-            "linear-gradient(to left, var(--color-card) 0%, var(--color-card) 55%, transparent 100%)",
+            "linear-gradient(to left, var(--color-card) 0%, var(--color-card) 20%, transparent 90%)",
     };
 
     const table = useReactTable({
