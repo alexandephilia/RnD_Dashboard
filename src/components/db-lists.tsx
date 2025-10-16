@@ -517,18 +517,26 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
             {
                 accessorKey: "token_count",
                 header: "Token Count",
-                cell: ({ row }) => (
-                    <Badge variant="secondary" className="tabular-nums">
-                        {formatNumber(row.original.token_count)}
-                    </Badge>
-                ),
+                cell: ({ row }) => {
+                    const tokens = row.original.tokens;
+                    const count = Array.isArray(tokens) ? tokens.length : 0;
+                    return (
+                        <Badge variant="secondary" className="tabular-nums">
+                            {formatNumber(count)}
+                        </Badge>
+                    );
+                },
             },
             {
                 accessorKey: "total_posts",
                 header: "Total Posts",
-                cell: ({ row }) => (
-                    <span className="tabular-nums">{formatNumber(row.original.total_posts)}</span>
-                ),
+                cell: ({ row }) => {
+                    const tokens = row.original.tokens as Array<{ post_count?: number }> | undefined;
+                    const total = Array.isArray(tokens)
+                        ? tokens.reduce((sum, t) => sum + (t.post_count || 0), 0)
+                        : 0;
+                    return <span className="tabular-nums">{formatNumber(total)}</span>;
+                },
             },
             {
                 accessorKey: "updatedAt",
