@@ -327,16 +327,9 @@ export default async function Page() {
         return sets.map(s => s.size);
     }
 
-    const bins = 24;
-    const prodSparklines = !showDemoSparkline ? {
-        groups: buildUniques(tokenCallsPlain, getTs, (t: unknown) => (t as Record<string, unknown>).group_id, currStart, now, bins),
-        users: buildCounts(usersPlain, (u: unknown) => {
-            const obj = u as Record<string, unknown>;
-            return (obj?.createdAt as string) || (obj?.updatedAt as string) || "";
-        }, currStart, now, bins),
-        tokens: buildUniques(tokenCallsPlain, getTs, (t: unknown) => (t as Record<string, unknown>).token_address, currStart, now, bins),
-        calls: buildCounts(tokenCallsPlain, getTs, currStart, now, bins),
-    } : null;
+    // In production, don't send SSR sparkline data - let client build it from live updates
+    // This avoids conflict between SSR binned counts and client delta tracking
+    const prodSparklines = null;
 
     const stats = [
         {
