@@ -274,7 +274,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
         return [
             {
                 id: "token",
-                header: "Token",
+                header: () => <div className="w-[220px] text-left">Token</div>,
                 accessorFn: (row) => {
                     const info = row.token_info as GenericRecord | undefined;
                     const name = typeof info?.name === "string" ? info.name : "";
@@ -299,7 +299,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                     const secondary = tokenSymbol || (address ? address.slice(0, 6) : "—");
 
                     return (
-                        <div className="flex min-w-[180px] items-center gap-2">
+                        <div className="flex w-[220px] items-center gap-2">
                             {logo ? (
                                 <img
                                     src={logo}
@@ -323,18 +323,20 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
             },
             {
                 accessorKey: "group_id",
-                header: "Group ID",
+                header: () => <div className="w-[140px] text-left">Group ID</div>,
                 cell: ({ row }) => (
-                    <span className="font-mono text-xs">
-                        {typeof row.original.group_id === "string"
-                            ? row.original.group_id
-                            : "—"}
-                    </span>
+                    <div className="w-[140px] text-left">
+                        <span className="font-mono text-xs">
+                            {typeof row.original.group_id === "string"
+                                ? row.original.group_id
+                                : "—"}
+                        </span>
+                    </div>
                 ),
             },
             {
                 id: "poster",
-                header: "First Poster",
+                header: () => <div className="w-[160px] text-left">First Poster</div>,
                 accessorFn: (row) => {
                     const poster = row.first_poster as GenericRecord | undefined;
                     const firstName = typeof poster?.first_name === "string" ? poster.first_name : "";
@@ -354,7 +356,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                             ? poster.username
                             : "—";
                     return (
-                        <div className="flex min-w-[140px] flex-col">
+                        <div className="flex w-[160px] flex-col">
                             <span className="truncate text-sm font-medium">{displayName}</span>
                             <span className="text-xs text-muted-foreground">@{username}</span>
                         </div>
@@ -364,16 +366,18 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
             },
             {
                 accessorKey: "first_mcap",
-                header: "First Called",
+                header: () => <div className="w-[120px] text-right">First Called</div>,
                 cell: ({ row }) => (
-                    <span className="tabular-nums font-medium">
-                        {formatMcap(row.original.first_mcap)}
-                    </span>
+                    <div className="w-[120px] text-right">
+                        <span className="tabular-nums font-medium">
+                            {formatMcap(row.original.first_mcap)}
+                        </span>
+                    </div>
                 ),
             },
             {
                 accessorKey: "ath_mcap",
-                header: "ATH",
+                header: () => <div className="w-[160px] text-right">ATH</div>,
                 cell: ({ row }) => {
                     const ath = toNumber(row.original.ath_mcap);
                     const last = toNumber(row.original.last_mcap);
@@ -386,7 +390,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                     const isAtOrAboveATH = progressPct !== null && progressPct >= 99.5;
                     
                     return (
-                        <div className="flex min-w-[100px] flex-col gap-1">
+                        <div className="flex w-[160px] flex-col gap-1 items-end">
                             <span className="tabular-nums font-medium text-green-600 dark:text-green-400">
                                 {formatMcap(row.original.ath_mcap)}
                             </span>
@@ -419,7 +423,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
             },
             {
                 accessorKey: "post_count",
-                header: () => <div className="text-center">Posts</div>,
+                header: () => <div className="w-[90px] text-center">Posts</div>,
                 cell: ({ row }) => {
                     const count = toNumber(row.original.post_count) ?? 0;
                     
@@ -464,27 +468,31 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
             },
             {
                 accessorKey: "last_updated",
-                header: "Last Updated",
+                header: () => <div className="w-[150px] text-right">Last Updated</div>,
                 cell: ({ row }) => (
-                    <span className="whitespace-nowrap text-xs text-muted-foreground">
-                        {formatDate(row.original.last_updated ?? row.original.updatedAt)}
-                    </span>
+                    <div className="w-[150px] text-right">
+                        <span className="whitespace-nowrap text-xs text-muted-foreground">
+                            {formatDate(row.original.last_updated ?? row.original.updatedAt)}
+                        </span>
+                    </div>
                 ),
             },
             {
                 id: "actions",
-                header: "",
+                header: () => <div className="w-[56px]"></div>,
                 cell: ({ row }) => (
-                    <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 w-8 p-0"
-                        onClick={() => handleViewDetails("Token Call Details", row.original)}
-                    >
-                        <EyeIcon className="h-4 w-4" />
-                        <span className="sr-only">View token call</span>
-                    </Button>
+                    <div className="w-[56px] flex justify-center">
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0"
+                            onClick={() => handleViewDetails("Token Call Details", row.original)}
+                        >
+                            <EyeIcon className="h-4 w-4" />
+                            <span className="sr-only">View token call</span>
+                        </Button>
+                    </div>
                 ),
             },
         ];
@@ -515,7 +523,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
         return [
             {
                 id: "user",
-                header: "User",
+                header: () => <div className="w-[180px] text-left">User</div>,
                 accessorFn: (row) => {
                     const firstName = typeof row.first_name === "string" ? row.first_name : "";
                     const username = typeof row.username === "string" ? row.username : "";
@@ -531,7 +539,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                             ? row.original.username
                             : "—";
                     return (
-                        <div className="flex min-w-[150px] flex-col">
+                        <div className="flex w-[180px] flex-col">
                             <span className="font-medium">{firstName}</span>
                             <span className="text-xs text-muted-foreground">@{username}</span>
                         </div>
@@ -541,18 +549,20 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
             },
             {
                 accessorKey: "user_id",
-                header: "User ID",
+                header: () => <div className="w-[140px] text-left">User ID</div>,
                 cell: ({ row }) => (
-                    <span className="font-mono text-xs">
+                    <div className="w-[140px] text-left">
+                        <span className="font-mono text-xs">
                         {typeof row.original.user_id === "string"
                             ? row.original.user_id
                             : "—"}
-                    </span>
+                        </span>
+                    </div>
                 ),
             },
             {
                 accessorKey: "is_active",
-                header: "Status",
+                header: () => <div className="w-[100px] text-center">Status</div>,
                 cell: ({ row }) => {
                     const isActive = row.original.is_active === true;
                     const statusColor = isActive
@@ -560,50 +570,58 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                         : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
                     
                     return (
-                        <Badge
-                            variant="secondary"
-                            className={cn(
-                                "text-[10px] font-semibold px-2 py-0.5 w-fit",
-                                statusColor
-                            )}
-                        >
-                            {isActive ? "Active" : "Inactive"}
-                        </Badge>
+                        <div className="w-[100px] flex justify-center">
+                            <Badge
+                                variant="secondary"
+                                className={cn(
+                                    "text-[10px] font-semibold px-2 py-0.5 w-fit",
+                                    statusColor
+                                )}
+                            >
+                                {isActive ? "Active" : "Inactive"}
+                            </Badge>
+                        </div>
                     );
                 },
             },
             {
                 accessorKey: "joined_at",
-                header: "Joined",
+                header: () => <div className="w-[150px] text-right">Joined</div>,
                 cell: ({ row }) => (
-                    <span className="whitespace-nowrap text-xs text-muted-foreground">
-                        {formatDate(row.original.joined_at)}
-                    </span>
+                    <div className="w-[150px] text-right">
+                        <span className="whitespace-nowrap text-xs text-muted-foreground">
+                            {formatDate(row.original.joined_at)}
+                        </span>
+                    </div>
                 ),
             },
             {
                 accessorKey: "updatedAt",
-                header: "Last Updated",
+                header: () => <div className="w-[150px] text-right">Last Updated</div>,
                 cell: ({ row }) => (
-                    <span className="whitespace-nowrap text-xs text-muted-foreground">
-                        {formatDate(row.original.updatedAt)}
-                    </span>
+                    <div className="w-[150px] text-right">
+                        <span className="whitespace-nowrap text-xs text-muted-foreground">
+                            {formatDate(row.original.updatedAt)}
+                        </span>
+                    </div>
                 ),
             },
             {
                 id: "actions",
-                header: "",
+                header: () => <div className="w-[56px]"></div>,
                 cell: ({ row }) => (
-                    <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 w-8 p-0"
-                        onClick={() => handleViewDetails("User Details", row.original)}
-                    >
-                        <EyeIcon className="h-4 w-4" />
-                        <span className="sr-only">View user details</span>
-                    </Button>
+                    <div className="w-[56px] flex justify-center">
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0"
+                            onClick={() => handleViewDetails("User Details", row.original)}
+                        >
+                            <EyeIcon className="h-4 w-4" />
+                            <span className="sr-only">View user details</span>
+                        </Button>
+                    </div>
                 ),
             },
         ];
@@ -613,42 +631,97 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
         return [
             {
                 accessorKey: "group_id",
-                header: "Group ID",
+                header: () => <div className="w-[140px] text-left">Group ID</div>,
                 cell: ({ row }) => (
-                    <span className="font-mono text-xs">
+                    <div className="w-[140px] text-left">
+                        <span className="font-mono text-xs">
                         {typeof row.original.group_id === "string"
                             ? row.original.group_id
                             : "—"}
-                    </span>
+                        </span>
+                    </div>
                 ),
             },
             {
                 accessorKey: "month",
-                header: "Month",
+                header: () => <div className="w-[120px] text-left">Month</div>,
                 cell: ({ row }) => (
-                    <span className="font-medium">
-                        {typeof row.original.month === "string" ? row.original.month : "—"}
-                    </span>
+                    <div className="w-[120px] text-left">
+                        <span className="font-medium">
+                            {typeof row.original.month === "string" ? row.original.month : "—"}
+                        </span>
+                    </div>
                 ),
             },
             {
                 accessorKey: "token_count",
-                header: () => <div className="text-center">Token Count</div>,
+                header: () => <div className="w-[110px] text-center">Token Count</div>,
                 cell: ({ row }) => {
-                    const tokens = row.original.tokens;
+                    const tokens = row.original.tokens as Array<{ post_count?: number }> | undefined;
                     const count = Array.isArray(tokens) ? tokens.length : 0;
+                    
+                    // Calculate diversity: Herfindahl-Hirschman Index (HHI) concentration
+                    let diversity: string;
+                    let diversityColor: string;
+                    
+                    if (count === 0) {
+                        diversity = "None";
+                        diversityColor = "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
+                    } else if (count === 1) {
+                        diversity = "Single";
+                        diversityColor = "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400";
+                    } else {
+                        const postCounts = tokens?.map(t => toNumber(t.post_count) || 0) || [];
+                        const totalPosts = postCounts.reduce((sum, c) => sum + c, 0);
+                        
+                        if (totalPosts === 0) {
+                            diversity = "Balanced";
+                            diversityColor = "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+                        } else {
+                            // Calculate HHI: sum of squared market shares (0-1 scale)
+                            const hhi = postCounts.reduce((sum, c) => {
+                                const share = c / totalPosts;
+                                return sum + (share * share);
+                            }, 0);
+                            
+                            // HHI interpretation:
+                            // < 0.15: Balanced (many tokens with similar activity)
+                            // 0.15-0.25: Mixed (moderate concentration)
+                            // > 0.25: Concentrated (few tokens dominate)
+                            if (hhi < 0.15) {
+                                diversity = "Balanced";
+                                diversityColor = "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+                            } else if (hhi < 0.25) {
+                                diversity = "Mixed";
+                                diversityColor = "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
+                            } else {
+                                diversity = "Focused";
+                                diversityColor = "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
+                            }
+                        }
+                    }
+                    
                     return (
-                        <div className="flex justify-center">
-                            <Badge variant="secondary" className="tabular-nums">
-                                {formatNumber(count)}
+                        <div className="flex w-[110px] flex-col items-center gap-1">
+                            <Badge 
+                                variant="secondary" 
+                                className={cn(
+                                    "text-[10px] font-semibold px-2 py-0.5",
+                                    diversityColor
+                                )}
+                            >
+                                {diversity}
                             </Badge>
+                            <span className="text-xs text-muted-foreground tabular-nums">
+                                {formatNumber(count)}
+                            </span>
                         </div>
                     );
                 },
             },
             {
                 accessorKey: "total_posts",
-                header: () => <div className="text-center">Total Posts</div>,
+                header: () => <div className="w-[100px] text-center">Total Posts</div>,
                 cell: ({ row }) => {
                     const tokens = row.original.tokens as Array<{ post_count?: number }> | undefined;
                     const total = Array.isArray(tokens)
@@ -677,7 +750,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                     }
                     
                     return (
-                        <div className="flex flex-col items-center gap-1 min-w-[60px]">
+                        <div className="flex w-[100px] flex-col items-center gap-1">
                             <Badge 
                                 variant="secondary" 
                                 className={cn(
@@ -696,27 +769,31 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
             },
             {
                 accessorKey: "updatedAt",
-                header: "Last Updated",
+                header: () => <div className="w-[150px] text-right">Last Updated</div>,
                 cell: ({ row }) => (
-                    <span className="whitespace-nowrap text-xs text-muted-foreground">
-                        {formatDate(row.original.updatedAt ?? row.original.last_updated)}
-                    </span>
+                    <div className="w-[150px] text-right">
+                        <span className="whitespace-nowrap text-xs text-muted-foreground">
+                            {formatDate(row.original.updatedAt ?? row.original.last_updated)}
+                        </span>
+                    </div>
                 ),
             },
             {
                 id: "actions",
-                header: "",
+                header: () => <div className="w-[56px]"></div>,
                 cell: ({ row }) => (
-                    <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 w-8 p-0"
-                        onClick={() => handleViewDetails("Group Monthly Details", row.original)}
-                    >
-                        <EyeIcon className="h-4 w-4" />
-                        <span className="sr-only">View group monthly details</span>
-                    </Button>
+                    <div className="w-[56px] flex justify-center">
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0"
+                            onClick={() => handleViewDetails("Group Monthly Details", row.original)}
+                        >
+                            <EyeIcon className="h-4 w-4" />
+                            <span className="sr-only">View group monthly details</span>
+                        </Button>
+                    </div>
                 ),
             },
         ];
