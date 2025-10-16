@@ -254,6 +254,22 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
         document.body.removeChild(link);
     }, []);
 
+    // Calculate percentiles for post_count tiers
+    const postTiers = useMemo(() => {
+        const counts = liveCalls
+            .map(call => toNumber(call.post_count) ?? 0)
+            .filter(n => n > 0)
+            .sort((a, b) => a - b);
+        
+        if (counts.length === 0) return { p25: 0, p50: 0, p90: 0 };
+        
+        const p25 = counts[Math.floor(counts.length * 0.25)] || 0;
+        const p50 = counts[Math.floor(counts.length * 0.50)] || 0;
+        const p90 = counts[Math.floor(counts.length * 0.90)] || 0;
+        
+        return { p25, p50, p90 };
+    }, [liveCalls]);
+
     const tokenColumns = useMemo<ColumnDef<GenericRecord, unknown>[]>(() => {
         return [
             {
@@ -347,33 +363,104 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                 filterFn: "includesString",
             },
             {
-                accessorKey: "last_mcap",
-                header: "Market Cap",
+                accessorKey: "first_mcap",
+                header: "First Called",
                 cell: ({ row }) => (
                     <span className="tabular-nums font-medium">
-                        {formatMcap(row.original.last_mcap)}
+                        {formatMcap(row.original.first_mcap)}
                     </span>
                 ),
             },
             {
                 accessorKey: "ath_mcap",
                 header: "ATH",
-                cell: ({ row }) => (
-                    <span className="tabular-nums text-green-600 dark:text-green-400">
-                        {formatMcap(row.original.ath_mcap)}
-                    </span>
-                ),
+                cell: ({ row }) => {
+                    const ath = toNumber(row.original.ath_mcap);
+                    const last = toNumber(row.original.last_mcap);
+                    
+                    // Calculate progress percentage (how close last_mcap is to ATH)
+                    const progressPct = ath && last && ath > 0 
+                        ? Math.min(100, (last / ath) * 100) 
+                        : null;
+                    
+                    const isAtOrAboveATH = progressPct !== null && progressPct >= 99.5;
+                    
+                    return (
+                        <div className="flex min-w-[100px] flex-col gap-1">
+                            <span className="tabular-nums font-medium text-green-600 dark:text-green-400">
+                                {formatMcap(row.original.ath_mcap)}
+                            </span>
+                            {progressPct !== null && (
+                                <div className="flex flex-col gap-0.5">
+                                    <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                                        <div
+                                            className="absolute inset-0"
+                                            style={{ 
+                                                opacity: 0.15,
+                                                background: 'linear-gradient(to right, rgb(239, 68, 68) 0%, rgb(251, 146, 60) 25%, rgb(250, 204, 21) 50%, rgb(163, 230, 53) 75%, rgb(34, 197, 94) 100%)'
+                                            }}
+                                        />
+                                        <div
+                                            className="relative h-full transition-all duration-300"
+                                            style={{ 
+                                                width: `${progressPct}%`,
+                                                background: 'linear-gradient(to right, rgb(239, 68, 68) 0%, rgb(251, 146, 60) 25%, rgb(250, 204, 21) 50%, rgb(163, 230, 53) 75%, rgb(34, 197, 94) 100%)'
+                                            }}
+                                        />
+                                    </div>
+                                    <span className="text-[10px] text-muted-foreground tabular-nums">
+                                        {isAtOrAboveATH ? "At ATH" : `${progressPct.toFixed(0)}% of ATH`}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    );
+                },
             },
             {
                 accessorKey: "post_count",
                 header: () => <div className="text-center">Posts</div>,
-                cell: ({ row }) => (
-                    <div className="flex justify-center">
-                        <Badge variant="secondary" className="tabular-nums">
-                            {formatNumber(row.original.post_count)}
-                        </Badge>
-                    </div>
-                ),
+                cell: ({ row }) => {
+                    const count = toNumber(row.original.post_count) ?? 0;
+                    
+                    // Determine tier based on percentiles
+                    let tier: string;
+                    let tierColor: string;
+                    
+                    if (count === 0) {
+                        tier = "None";
+                        tierColor = "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
+                    } else if (count < postTiers.p25) {
+                        tier = "Low";
+                        tierColor = "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
+                    } else if (count < postTiers.p50) {
+                        tier = "Med";
+                        tierColor = "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
+                    } else if (count < postTiers.p90) {
+                        tier = "High";
+                        tierColor = "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
+                    } else {
+                        tier = "Ultra";
+                        tierColor = "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+                    }
+                    
+                    return (
+                        <div className="flex flex-col items-center gap-1 min-w-[60px]">
+                            <Badge 
+                                variant="secondary" 
+                                className={cn(
+                                    "text-[10px] font-semibold px-2 py-0.5",
+                                    tierColor
+                                )}
+                            >
+                                {tier}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground tabular-nums">
+                                {formatNumber(count)}
+                            </span>
+                        </div>
+                    );
+                },
             },
             {
                 accessorKey: "last_updated",
@@ -401,7 +488,28 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                 ),
             },
         ];
-    }, [handleViewDetails]);
+    }, [handleViewDetails, postTiers]);
+
+    // Calculate percentiles for group monthly total posts
+    const groupMonthlyPostTiers = useMemo(() => {
+        const totals = liveGroupMonthly
+            .map(group => {
+                const tokens = group.tokens as Array<{ post_count?: number }> | undefined;
+                return Array.isArray(tokens)
+                    ? tokens.reduce((sum, t) => sum + (toNumber(t.post_count) || 0), 0)
+                    : 0;
+            })
+            .filter(n => n > 0)
+            .sort((a, b) => a - b);
+        
+        if (totals.length === 0) return { p25: 0, p50: 0, p90: 0 };
+        
+        const p25 = totals[Math.floor(totals.length * 0.25)] || 0;
+        const p50 = totals[Math.floor(totals.length * 0.50)] || 0;
+        const p90 = totals[Math.floor(totals.length * 0.90)] || 0;
+        
+        return { p25, p50, p90 };
+    }, [liveGroupMonthly]);
 
     const userColumns = useMemo<ColumnDef<GenericRecord, unknown>[]>(() => {
         return [
@@ -447,10 +555,17 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                 header: "Status",
                 cell: ({ row }) => {
                     const isActive = row.original.is_active === true;
+                    const statusColor = isActive
+                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                        : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
+                    
                     return (
                         <Badge
-                            variant={isActive ? "default" : "secondary"}
-                            className={cn("w-fit", isActive && "bg-green-600 hover:bg-green-700")}
+                            variant="secondary"
+                            className={cn(
+                                "text-[10px] font-semibold px-2 py-0.5 w-fit",
+                                statusColor
+                            )}
                         >
                             {isActive ? "Active" : "Inactive"}
                         </Badge>
@@ -537,9 +652,46 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                 cell: ({ row }) => {
                     const tokens = row.original.tokens as Array<{ post_count?: number }> | undefined;
                     const total = Array.isArray(tokens)
-                        ? tokens.reduce((sum, t) => sum + (t.post_count || 0), 0)
+                        ? tokens.reduce((sum, t) => sum + (toNumber(t.post_count) || 0), 0)
                         : 0;
-                    return <div className="text-center tabular-nums">{formatNumber(total)}</div>;
+                    
+                    // Determine tier based on percentiles
+                    let tier: string;
+                    let tierColor: string;
+                    
+                    if (total === 0) {
+                        tier = "None";
+                        tierColor = "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
+                    } else if (total < groupMonthlyPostTiers.p25) {
+                        tier = "Low";
+                        tierColor = "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
+                    } else if (total < groupMonthlyPostTiers.p50) {
+                        tier = "Med";
+                        tierColor = "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
+                    } else if (total < groupMonthlyPostTiers.p90) {
+                        tier = "High";
+                        tierColor = "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
+                    } else {
+                        tier = "Ultra";
+                        tierColor = "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+                    }
+                    
+                    return (
+                        <div className="flex flex-col items-center gap-1 min-w-[60px]">
+                            <Badge 
+                                variant="secondary" 
+                                className={cn(
+                                    "text-[10px] font-semibold px-2 py-0.5",
+                                    tierColor
+                                )}
+                            >
+                                {tier}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground tabular-nums">
+                                {formatNumber(total)}
+                            </span>
+                        </div>
+                    );
                 },
             },
             {
@@ -568,7 +720,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                 ),
             },
         ];
-    }, [handleViewDetails]);
+    }, [handleViewDetails, groupMonthlyPostTiers]);
 
     const tabIndex = Math.max(TAB_ORDER.indexOf(activeTab), 0);
 
