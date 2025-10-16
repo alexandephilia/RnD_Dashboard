@@ -284,34 +284,88 @@ export default async function Page() {
         calls: statsSnapshot?.calls_24h ?? callsWin.curr,
     } as const;
 
+    const showDemoSparkline = process.env.NODE_ENV !== "production" && process.env.USE_DEMO_SPARKLINE !== "false";
+
+    // Build production sparkline data from last window (default 24h)
+    function buildTimeBins(start: number, end: number, bins = 24) {
+        const width = Math.max(1, end - start);
+        const step = Math.floor(width / bins);
+        const edges = Array.from({ length: bins + 1 }, (_, i) => start + i * step);
+        return { edges, step, bins } as const;
+    }
+
+    function buildCounts<T>(arr: T[], ts: (x: T) => string, start: number, end: number, bins = 24) {
+        const out = Array(bins).fill(0) as number[];
+        if (!arr.length) return out;
+        const { step } = buildTimeBins(start, end, bins);
+        const width = Math.max(1, end - start);
+        for (const item of arr) {
+            const s = ts(item);
+            const n = s ? Date.parse(s) : NaN;
+            if (!Number.isFinite(n)) continue;
+            if (n < start || n > end) continue;
+            const idx = Math.min(bins - 1, Math.max(0, Math.floor(((n - start) / width) * bins)));
+            out[idx] += 1;
+        }
+        return out;
+    }
+
+    function buildUniques<T>(arr: T[], ts: (x: T) => string, key: (x: T) => unknown, start: number, end: number, bins = 24) {
+        const sets = Array.from({ length: bins }, () => new Set<string>());
+        if (arr.length) {
+            const width = Math.max(1, end - start);
+            for (const item of arr) {
+                const s = ts(item);
+                const n = s ? Date.parse(s) : NaN;
+                if (!Number.isFinite(n)) continue;
+                if (n < start || n > end) continue;
+                const idx = Math.min(bins - 1, Math.max(0, Math.floor(((n - start) / width) * bins)));
+                const k = key(item);
+                if (k != null) sets[idx].add(String(k));
+            }
+        }
+        return sets.map(s => s.size);
+    }
+
+    const bins = 24;
+    const prodSparklines = !showDemoSparkline ? {
+        groups: buildUniques(tokenCallsPlain, getTs, (t: unknown) => (t as Record<string, unknown>).group_id, currStart, now, bins),
+        users: buildCounts(usersPlain, (u: unknown) => {
+            const obj = u as Record<string, unknown>;
+            return (obj?.createdAt as string) || (obj?.updatedAt as string) || "";
+        }, currStart, now, bins),
+        tokens: buildUniques(tokenCallsPlain, getTs, (t: unknown) => (t as Record<string, unknown>).token_address, currStart, now, bins),
+        calls: buildCounts(tokenCallsPlain, getTs, currStart, now, bins),
+    } : null;
+
     const stats = [
         {
             title: "Groups",
             value: totals.groups.toLocaleString(),
             change: { value: pctUp(gains24h.groups, totals.groups), trend: "up" as const },
             icon: <RiGroupLine size={20} aria-hidden="true" suppressHydrationWarning />,
-            sparklineData: generateSparkline(totals.groups),
+            ...(showDemoSparkline ? { sparklineData: generateSparkline(totals.groups) } : { sparklineData: prodSparklines?.groups }),
         },
         {
             title: "Users",
             value: totals.users.toLocaleString(),
             change: { value: pctUp(gains24h.users, totals.users), trend: "up" as const },
             icon: <RiUserLine size={20} aria-hidden="true" suppressHydrationWarning />,
-            sparklineData: generateSparkline(totals.users),
+            ...(showDemoSparkline ? { sparklineData: generateSparkline(totals.users) } : { sparklineData: prodSparklines?.users }),
         },
         {
             title: "Tokens",
             value: totals.tokens.toLocaleString(),
             change: { value: pctUp(gains24h.tokens, totals.tokens), trend: "up" as const },
             icon: <RiDatabaseLine size={20} aria-hidden="true" suppressHydrationWarning />,
-            sparklineData: generateSparkline(totals.tokens),
+            ...(showDemoSparkline ? { sparklineData: generateSparkline(totals.tokens) } : { sparklineData: prodSparklines?.tokens }),
         },
         {
             title: callsLabel,
             value: callsValue.toLocaleString(),
             change: { value: pctUp(gains24h.calls, totals.calls), trend: "up" as const },
             icon: <RiBarChartLine size={20} aria-hidden="true" suppressHydrationWarning />,
-            sparklineData: generateSparkline(callsValue),
+            ...(showDemoSparkline ? { sparklineData: generateSparkline(callsValue) } : { sparklineData: prodSparklines?.calls }),
         },
     ];
     return (
