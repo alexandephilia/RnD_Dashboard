@@ -8,7 +8,21 @@ type Stat = { title: string; value: string; change: Change; icon: React.ReactNod
 
 export function StatsLive({ initial, periodLabel, showChange = true }: { initial: Stat[]; periodLabel?: string; showChange?: boolean }) {
   const [stats, setStats] = React.useState<Stat[]>(initial);
+  const [lastValues, setLastValues] = React.useState<Record<string, number>>({});
   const [sparklineHistory, setSparklineHistory] = React.useState<Record<string, number[]>>(() => {
+    // Try to load from localStorage first
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("rnd_stats_sparkline_v1");
+        if (saved) {
+          const parsed = JSON.parse(saved) as Record<string, number[]>;
+          if (parsed && typeof parsed === "object" && Object.keys(parsed).length > 0) {
+            return parsed; // Use saved data if available
+          }
+        }
+      } catch {}
+    }
+    // Otherwise use SSR data
     const seed: Record<string, number[]> = {};
     for (const it of initial) {
       if (it.sparklineData && it.sparklineData.length) {
@@ -19,37 +33,17 @@ export function StatsLive({ initial, periodLabel, showChange = true }: { initial
   });
 
   React.useEffect(() => {
-    // Load persisted history (prevents reset on reload)
-    try {
-      const saved = localStorage.getItem("rnd_stats_sparkline_v1");
-      if (saved) {
-        const parsed = JSON.parse(saved) as Record<string, number[]>;
-        if (parsed && typeof parsed === "object") {
-          setSparklineHistory((prev) => {
-            const merged = { ...prev };
-            // Merge with existing, preferring longer arrays
-            for (const key in parsed) {
-              if (!merged[key] || merged[key].length < parsed[key].length) {
-                merged[key] = parsed[key];
-              }
-            }
-            return merged;
-          });
-          
-          // Update stats with persisted sparkline data
-          setStats((prev) =>
-            prev.map((it) => {
-              const t = it.title.toLowerCase();
-              const sparklineData = parsed[t];
-              if (sparklineData && sparklineData.length > 0) {
-                return { ...it, sparklineData };
-              }
-              return it;
-            })
-          );
+    // Update initial stats with loaded sparkline data
+    setStats((prev) =>
+      prev.map((it) => {
+        const t = it.title.toLowerCase();
+        const sparklineData = sparklineHistory[t];
+        if (sparklineData && sparklineData.length > 0) {
+          return { ...it, sparklineData };
         }
-      }
-    } catch {}
+        return it;
+      })
+    );
 
     let active = true;
     const update = async () => {
@@ -63,27 +57,38 @@ export function StatsLive({ initial, periodLabel, showChange = true }: { initial
           return `${pct}%`;
         };
 
-        const maxPoints = 24;
+        const maxPoints = 48; // Store more points for smoother history
         
-        // Update both history and stats together
-        setSparklineHistory((prevHistory) => {
-          const newHistory = { ...prevHistory };
+        // Calculate deltas (new activity since last check) instead of totals
+        setLastValues((prevLast) => {
+          const newLast: Record<string, number> = {};
           
-          if (typeof s?.group_count === "number") {
-            newHistory["groups"] = [...(prevHistory["groups"] || []), s.group_count].slice(-maxPoints);
-          }
-          if (typeof s?.users_count === "number") {
-            newHistory["users"] = [...(prevHistory["users"] || []), s.users_count].slice(-maxPoints);
-          }
-          if (typeof s?.token_count === "number") {
-            newHistory["tokens"] = [...(prevHistory["tokens"] || []), s.token_count].slice(-maxPoints);
-          }
-          if (typeof s?.calls_total === "number") {
-            newHistory["token calls"] = [...(prevHistory["token calls"] || []), s.calls_total].slice(-maxPoints);
-          }
-          
-          // Update stats with new history
-          setStats((prev) =>
+          setSparklineHistory((prevHistory) => {
+            const newHistory = { ...prevHistory };
+            
+            if (typeof s?.group_count === "number") {
+              const delta = Math.max(0, s.group_count - (prevLast["groups"] || s.group_count));
+              newHistory["groups"] = [...(prevHistory["groups"] || []), delta].slice(-maxPoints);
+              newLast["groups"] = s.group_count;
+            }
+            if (typeof s?.users_count === "number") {
+              const delta = Math.max(0, s.users_count - (prevLast["users"] || s.users_count));
+              newHistory["users"] = [...(prevHistory["users"] || []), delta].slice(-maxPoints);
+              newLast["users"] = s.users_count;
+            }
+            if (typeof s?.token_count === "number") {
+              const delta = Math.max(0, s.token_count - (prevLast["tokens"] || s.token_count));
+              newHistory["tokens"] = [...(prevHistory["tokens"] || []), delta].slice(-maxPoints);
+              newLast["tokens"] = s.token_count;
+            }
+            if (typeof s?.calls_total === "number") {
+              const delta = Math.max(0, s.calls_total - (prevLast["token calls"] || s.calls_total));
+              newHistory["token calls"] = [...(prevHistory["token calls"] || []), delta].slice(-maxPoints);
+              newLast["token calls"] = s.calls_total;
+            }
+            
+            // Update stats with new history
+            setStats((prev) =>
             prev.map((it) => {
               const t = it.title.toLowerCase();
               if (t === "groups" && typeof s?.group_count === "number") {
@@ -111,13 +116,16 @@ export function StatsLive({ initial, periodLabel, showChange = true }: { initial
                 }
               }
               return it;
-            }),
-          );
+              }),
+            );
+            
+            try {
+              localStorage.setItem("rnd_stats_sparkline_v1", JSON.stringify(newHistory));
+            } catch {}
+            return newHistory;
+          });
           
-          try {
-            localStorage.setItem("rnd_stats_sparkline_v1", JSON.stringify(newHistory));
-          } catch {}
-          return newHistory;
+          return newLast;
         });
       } catch {
         /* ignore */
