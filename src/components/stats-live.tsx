@@ -25,7 +25,28 @@ export function StatsLive({ initial, periodLabel, showChange = true }: { initial
       if (saved) {
         const parsed = JSON.parse(saved) as Record<string, number[]>;
         if (parsed && typeof parsed === "object") {
-          setSparklineHistory((prev) => ({ ...parsed, ...prev }));
+          setSparklineHistory((prev) => {
+            const merged = { ...prev };
+            // Merge with existing, preferring longer arrays
+            for (const key in parsed) {
+              if (!merged[key] || merged[key].length < parsed[key].length) {
+                merged[key] = parsed[key];
+              }
+            }
+            return merged;
+          });
+          
+          // Update stats with persisted sparkline data
+          setStats((prev) =>
+            prev.map((it) => {
+              const t = it.title.toLowerCase();
+              const sparklineData = parsed[t];
+              if (sparklineData && sparklineData.length > 0) {
+                return { ...it, sparklineData };
+              }
+              return it;
+            })
+          );
         }
       }
     } catch {}
@@ -103,7 +124,8 @@ export function StatsLive({ initial, periodLabel, showChange = true }: { initial
       }
     };
     update();
-    const id = setInterval(update, 30000);
+    // Poll every 5 seconds for more real-time updates
+    const id = setInterval(update, 5000);
     return () => {
       active = false;
       clearInterval(id);
