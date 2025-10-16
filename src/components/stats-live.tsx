@@ -22,13 +22,14 @@ export function StatsLive({ initial, periodLabel, showChange = true }: { initial
         }
       } catch {}
     }
-    // Otherwise use SSR data
-    const seed: Record<string, number[]> = {};
-    for (const it of initial) {
-      if (it.sparklineData && it.sparklineData.length) {
-        seed[it.title.toLowerCase()] = it.sparklineData;
-      }
-    }
+    // Initialize with baseline of zeros so sparkline shows immediately
+    const baselineSize = 12; // Start with 12 points
+    const seed: Record<string, number[]> = {
+      "groups": Array(baselineSize).fill(0),
+      "users": Array(baselineSize).fill(0),
+      "tokens": Array(baselineSize).fill(0),
+      "token calls": Array(baselineSize).fill(0),
+    };
     return seed;
   });
 

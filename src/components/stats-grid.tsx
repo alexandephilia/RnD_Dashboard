@@ -51,26 +51,28 @@ export function StatsCard({ title, value, change, icon, changeLabel, showChange 
           )}
         </div>
         {/* Sparkline - Right side on tablet/desktop */}
-        {sparklineData && sparklineData.length > 0 && (
-          <div className="hidden md:flex items-center opacity-70 text-yellow-500 flex-shrink min-w-[80px] max-w-[280px]">
-            <div className="w-full">
-              <Sparkline 
-                data={sparklineData} 
-                width={200} 
-                height={60} 
-                showAnomalies={false} 
-                className="w-full h-auto" 
-              />
-            </div>
+        <div className="hidden md:flex items-center opacity-70 text-yellow-500 flex-shrink min-w-[80px] max-w-[280px]">
+          <div className="w-full">
+            <Sparkline 
+              data={sparklineData && sparklineData.length > 0 ? sparklineData : [0]} 
+              width={200} 
+              height={60} 
+              showAnomalies={false} 
+              className="w-full h-auto" 
+            />
           </div>
-        )}
+        </div>
       </div>
       {/* Sparkline - Bottom on mobile */}
-      {sparklineData && sparklineData.length > 0 && (
-        <div className="md:hidden mt-3 -mb-1 opacity-60 text-yellow-500 w-full">
-          <Sparkline data={sparklineData} width={200} height={32} showAnomalies={false} className="w-full h-auto" />
-        </div>
-      )}
+      <div className="md:hidden mt-3 -mb-1 opacity-60 text-yellow-500 w-full">
+        <Sparkline 
+          data={sparklineData && sparklineData.length > 0 ? sparklineData : [0]} 
+          width={200} 
+          height={32} 
+          showAnomalies={false} 
+          className="w-full h-auto" 
+        />
+      </div>
     </div>
   );
 }
