@@ -316,7 +316,7 @@ export function JsonTreeViewer({ data, onCopy }: JsonTreeViewerProps) {
             const timer = setTimeout(() => {
                 setDisplayedPath(null);
                 setIsExiting(false);
-            }, 300);
+            }, 150);
             return () => clearTimeout(timer);
         }
     }, [hoveredPath, displayedPath]);
@@ -339,7 +339,7 @@ export function JsonTreeViewer({ data, onCopy }: JsonTreeViewerProps) {
     return (
         <div className="relative flex flex-col">
             <div
-                className="bg-card border border-border rounded-lg p-4 overflow-auto max-h-[70vh] break-words"
+                className="relative bg-card border border-border rounded-lg p-4 overflow-auto max-h-[70vh] break-words select-none cursor-default"
                 onMouseLeave={() => setHoveredPath(null)}
             >
                 <TreeNode
@@ -351,20 +351,21 @@ export function JsonTreeViewer({ data, onCopy }: JsonTreeViewerProps) {
                     hoveredPath={hoveredPath}
                     onHover={setHoveredPath}
                 />
-            </div>
-            {displayedPath && (
-                <div className={cn(
-                    "mt-2 px-3 py-2 bg-gradient-to-r from-yellow-500/15 via-yellow-500/10 to-yellow-500/15 border border-yellow-500/30 rounded-lg text-xs font-mono break-all shadow-lg shadow-yellow-500/10 duration-300 transition-all",
-                    !isExiting && "animate-in slide-in-from-bottom-2 fade-in zoom-in-95",
-                    isExiting && "animate-out slide-out-to-bottom-2 fade-out zoom-out-95"
-                )}>
-                    <div className="flex items-center gap-2">
-                        <span className="text-yellow-600 dark:text-yellow-400 font-bold text-[10px] uppercase tracking-wide">Path</span>
-                        <div className="h-3 w-px bg-yellow-500/30" />
-                        <span className="text-foreground/80">{displayedPath}</span>
+                {displayedPath && (
+                    <div className="sticky bottom-0 z-10 w-full pointer-events-none">
+                        <div className="flex justify-end pr-3 pb-3">
+                            <div className={cn(
+                                "pointer-events-auto max-w-[300px] px-1.5 py-1 rounded bg-orange-50/80 dark:bg-orange-900/40 text-orange-950 dark:text-orange-50 text-[10px] border-2 border-orange-200/10 dark:border-orange-700/10 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1),inset_0_-1px_1px_rgba(255,255,255,0.2)] dark:shadow-[inset_0_1px_2px_rgba(0,0,0,0.3),inset_0_-1px_1px_rgba(255,255,255,0.1)] transition-all duration-200",
+                                !isExiting && "animate-in fade-in slide-in-from-bottom-1 duration-200",
+                                isExiting && "animate-out fade-out slide-out-to-bottom-1 duration-150"
+                            )}>
+                                <span className="mr-1.5 text-[8px] uppercase text-orange-700 dark:text-orange-300 font-medium">Path</span>
+                                <span className="font-mono break-all">{displayedPath}</span>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 }
