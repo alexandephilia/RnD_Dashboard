@@ -327,9 +327,6 @@ export default async function Page() {
                     <div className="flex items-center justify-between gap-4">
                         <div className="space-y-1">
                             <h1 className={`text-2xl font-semibold ${pressStart.className}`}>Hey, {adminName}!</h1>
-                            <p className="text-sm text-muted-foreground">
-                                Here&rsquo;s an overview of your data. Choose a database to explore.
-                            </p>
                         </div>
                     </div>
                     {/* Numbers (24h, live-updated from /api/rnd/stats) */}
