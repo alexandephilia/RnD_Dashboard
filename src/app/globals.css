@@ -227,14 +227,6 @@
     animation: shimmer-text 3.8s ease-in-out infinite;
 }
 
-.interactive-shimmer[data-zero="true"] {
-    animation-duration: 3.8s;
-}
-
-.interactive-shimmer[data-negative="true"] {
-    animation-duration: 3.8s;
-}
-
 @media (prefers-reduced-motion: reduce) {
     .interactive-shimmer {
         animation: none;
