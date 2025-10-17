@@ -173,9 +173,10 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
         };
     }, [sortBy]);
 
-    // Dismiss scrub overlay on outside click and handle window resize
+    // Dismiss scrub overlay on outside click, handle resize, and update position on scroll
     useEffect(() => {
         if (!scrubOverlay) return;
+
         const handleOutside = (e: MouseEvent | TouchEvent) => {
             if (!overlayRef.current) return;
             const target = e.target as Node;
@@ -191,14 +192,52 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
             setScrubOverlay(null);
         };
 
+        const handleScroll = () => {
+            // Find the trigger button and recalculate overlay position
+            const triggerButton = document.querySelector(`[data-row-id="${scrubOverlay.rowId}"]`);
+            if (!triggerButton) return;
+
+            const rect = triggerButton.getBoundingClientRect();
+            const overlayWidth = 300;
+            const overlayHeight = 160;
+            const padding = 16;
+            const spacingBelow = 8;
+            const spacingAbove = 8;
+
+            let left = rect.left + rect.width / 2;
+            let top = rect.bottom + spacingBelow;
+
+            // Check if overlay would go off the right edge
+            const rightEdge = left + overlayWidth / 2;
+            if (rightEdge > window.innerWidth - padding) {
+                left = window.innerWidth - padding - overlayWidth / 2;
+            }
+
+            // Check if overlay would go off the left edge
+            const leftEdge = left - overlayWidth / 2;
+            if (leftEdge < padding) {
+                left = padding + overlayWidth / 2;
+            }
+
+            // Check if overlay would go off the bottom edge
+            const bottomEdge = rect.bottom + overlayHeight + spacingBelow;
+            if (bottomEdge > window.innerHeight) {
+                top = rect.top - overlayHeight - spacingAbove;
+            }
+
+            setScrubOverlay(prev => prev ? { ...prev, left, top } : null);
+        };
+
         document.addEventListener('mousedown', handleOutside);
         document.addEventListener('touchstart', handleOutside);
         window.addEventListener('resize', handleResize);
+        window.addEventListener('scroll', handleScroll, true); // Use capture to catch all scroll events
 
         return () => {
             document.removeEventListener('mousedown', handleOutside);
             document.removeEventListener('touchstart', handleOutside);
             window.removeEventListener('resize', handleResize);
+            window.removeEventListener('scroll', handleScroll, true);
         };
     }, [scrubOverlay]);
 
@@ -467,27 +506,27 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                         const spacingBelow = 8; // spacing when overlay appears below button
                         const spacingAbove = 8; // spacing when overlay appears above button
 
-                        // Calculate initial position (centered below the button)
-                        let left = rect.left + window.scrollX + rect.width / 2;
-                        let top = rect.bottom + window.scrollY + spacingBelow;
+                        // Calculate position relative to viewport (fixed positioning, no scroll offset needed)
+                        let left = rect.left + rect.width / 2;
+                        let top = rect.bottom + spacingBelow;
 
                         // Check if overlay would go off the right edge
                         const rightEdge = left + overlayWidth / 2;
                         if (rightEdge > window.innerWidth - padding) {
-                            left = window.innerWidth - padding - overlayWidth / 2 + window.scrollX;
+                            left = window.innerWidth - padding - overlayWidth / 2;
                         }
 
                         // Check if overlay would go off the left edge
                         const leftEdge = left - overlayWidth / 2;
                         if (leftEdge < padding) {
-                            left = padding + overlayWidth / 2 + window.scrollX;
+                            left = padding + overlayWidth / 2;
                         }
 
                         // Check if overlay would go off the bottom edge
                         const bottomEdge = rect.bottom + overlayHeight + spacingBelow;
                         if (bottomEdge > window.innerHeight) {
                             // Position above the button instead
-                            top = rect.top + window.scrollY - overlayHeight - spacingAbove;
+                            top = rect.top - overlayHeight - spacingAbove;
                         }
 
                         setScrubOverlay({ rowId, first: firstValue, ath: athValue, left, top });
@@ -522,6 +561,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                                     onClick={(e) => handleActivate(e)}
                                     onMouseEnter={(e) => handleActivate(e)}
                                     data-active={isActive ? "true" : undefined}
+                                    data-row-id={rowId}
                                 >
                                     <span
                                         className="interactive-shimmer block text-right tabular-nums font-medium"
