@@ -121,9 +121,6 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
     const [activeScrubRow, setActiveScrubRow] = useState<string | null>(null);
     const [scrubOverlay, setScrubOverlay] = useState<{
         rowId: string;
-        first: number;
-        ath: number;
-        current: number;
         left: number;
         top: number;
     } | null>(null);
@@ -151,6 +148,60 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
         sortBy(asRecords(groupMonthlyTokens), groupMonthlyTimestamp).slice(0, 100),
     );
 
+    const getTokenKey = useCallback((record: GenericRecord) => {
+        if (typeof record._id === "string") return record._id;
+        const tokenAddress = typeof record.token_address === "string" ? record.token_address : "";
+        const groupIdValue = record.group_id;
+        const groupId =
+            typeof groupIdValue === "string"
+                ? groupIdValue
+                : typeof groupIdValue === "number"
+                    ? String(groupIdValue)
+                    : "";
+        return `${tokenAddress}-${groupId}`;
+    }, []);
+
+    const mergeTokenRecords = useCallback(
+        (incoming: GenericRecord[], previous: GenericRecord[]) => {
+            if (!previous.length) return incoming;
+            const prevMap = new Map(previous.map((record) => [getTokenKey(record), record]));
+
+            const merged = incoming.map((record) => {
+                const key = getTokenKey(record);
+                const prevRecord = prevMap.get(key);
+                if (!prevRecord) return record;
+
+                const stamp = (value: GenericRecord) =>
+                    value.last_updated ?? value.updatedAt ?? value.createdAt ?? "";
+
+                const unchanged =
+                    stamp(prevRecord) === stamp(record) &&
+                    toNumber(prevRecord.last_mcap) === toNumber(record.last_mcap) &&
+                    toNumber(prevRecord.first_mcap) === toNumber(record.first_mcap) &&
+                    toNumber(prevRecord.ath_mcap) === toNumber(record.ath_mcap) &&
+                    toNumber(prevRecord.post_count) === toNumber(record.post_count);
+
+                return unchanged ? prevRecord : record;
+            });
+
+            const isSameReference =
+                merged.length === previous.length &&
+                merged.every((item, index) => item === previous[index]);
+
+            return isSameReference ? previous : merged;
+        },
+        [getTokenKey],
+    );
+
+    const activeRecord = useMemo(() => {
+        if (!activeScrubRowId) return null;
+        return liveCalls.find((item) => {
+            const tokenAddress = item.token_address;
+            const groupId = item.group_id;
+            return `${tokenAddress}-${groupId}` === activeScrubRowId;
+        }) ?? null;
+    }, [liveCalls, activeScrubRowId]);
+
     useEffect(() => {
         let cancelled = false;
 
@@ -160,7 +211,8 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                 if (!res.ok) return;
                 const data = await res.json();
                 if (cancelled || !Array.isArray(data)) return;
-                setLiveCalls(sortBy(asRecords(data), callTimestamp).slice(0, 100));
+                const next = sortBy(asRecords(data), callTimestamp).slice(0, 100);
+                setLiveCalls((prev) => mergeTokenRecords(next, prev));
             } catch {
                 // ignore fetch errors
             }
@@ -172,20 +224,14 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
             cancelled = true;
             clearInterval(id);
         };
-    }, [sortBy]);
+    }, [sortBy, mergeTokenRecords]);
 
     useEffect(() => {
-        if (!activeScrubRowId) return;
-        const record = liveCalls.find((item) => {
-            const tokenAddress = item.token_address;
-            const groupId = item.group_id;
-            return `${tokenAddress}-${groupId}` === activeScrubRowId;
-        });
-        if (!record) return;
+        if (!activeRecord) return;
 
-        const rawFirst = toNumber(record.first_mcap);
-        const rawAth = toNumber(record.ath_mcap);
-        const rawLast = toNumber(record.last_mcap);
+        const rawFirst = toNumber(activeRecord.first_mcap);
+        const rawAth = toNumber(activeRecord.ath_mcap);
+        const rawLast = toNumber(activeRecord.last_mcap);
 
         const firstValue = isFiniteNumber(rawFirst) ? rawFirst : null;
         const athValue = isFiniteNumber(rawAth) ? rawAth : null;
@@ -194,37 +240,21 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
         if (firstValue === null || athValue === null || athValue <= 0) return;
 
         const boundedCurrent = (() => {
-            if (athValue <= 0) return firstValue;
             const source = lastValue ?? firstValue;
+            if (source === null) return firstValue;
             return Math.max(0, Math.min(athValue, source));
         })();
 
+        if (boundedCurrent === null) return;
         const nextPercent = Math.max(
             0,
             Math.min(100, (boundedCurrent / athValue) * 100),
         );
 
-        setScrubOverlay((prev) => {
-            if (!prev || prev.rowId !== activeScrubRowId) return prev;
-            if (
-                prev.first === firstValue &&
-                prev.ath === athValue &&
-                prev.current === boundedCurrent
-            ) {
-                return prev;
-            }
-            return {
-                ...prev,
-                first: firstValue,
-                ath: athValue,
-                current: boundedCurrent,
-            };
-        });
-
         if (!isDragging && !justClicked) {
             setScrubVisual((prev) => (prev === nextPercent ? prev : nextPercent));
         }
-    }, [liveCalls, activeScrubRowId, isDragging, justClicked]);
+    }, [activeRecord, isDragging, justClicked]);
 
     // Dismiss scrub overlay on outside click, handle resize, and update position on scroll
     useEffect(() => {
@@ -593,12 +623,8 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                             top = rect.top - overlayHeight - spacingAbove;
                         }
 
-                        const currentValue = liveValue ?? firstValue;
                         setScrubOverlay({
                             rowId,
-                            first: firstValue,
-                            ath: athValue,
-                            current: currentValue ?? firstValue,
                             left,
                             top,
                         });
@@ -609,16 +635,6 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                         setActiveScrubRow(rowId);
                         const init = Number.isFinite(initialPercentage) ? initialPercentage : 0;
                         setScrubVisual(init);
-                        setScrubOverlay(prev => {
-                            if (!prev || prev.rowId !== rowId) return prev;
-                            const currentValue = liveValue ?? firstValue;
-                            return {
-                                ...prev,
-                                first: firstValue,
-                                ath: athValue,
-                                current: currentValue ?? firstValue,
-                            };
-                        });
                         if (e) openOverlay(e.currentTarget as HTMLElement);
                     };
 
@@ -805,7 +821,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                 ),
             },
         ];
-    }, [handleViewDetails, postTiers]);
+    }, [handleViewDetails, postTiers, activeScrubRow]);
 
     // Calculate percentiles for group monthly total posts (for percentile-based chips)
     const groupMonthlyPostTiers = useMemo(() => {
@@ -1311,12 +1327,22 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                     <div className="space-y-4">
                         {/* Custom multicolor interactive progress bar */}
                         {(() => {
-                            const { first, ath, current: liveCurrent } = scrubOverlay;
-                            const safeFirst = typeof first === "number" && Number.isFinite(first) ? first : 0;
-                            const safeAth = typeof ath === "number" && Number.isFinite(ath) ? ath : 0;
-                            const safeLiveCurrent = typeof liveCurrent === "number" && Number.isFinite(liveCurrent)
-                                ? liveCurrent
-                                : safeFirst;
+                            const rawFirst = toNumber(activeRecord?.first_mcap);
+                            const rawAth = toNumber(activeRecord?.ath_mcap);
+                            const rawLast = toNumber(activeRecord?.last_mcap);
+                            const safeFirst = isFiniteNumber(rawFirst) ? rawFirst : 0;
+                            const safeAth = isFiniteNumber(rawAth) && rawAth > 0 ? rawAth : 0;
+                            if (!activeRecord || safeAth === 0) {
+                                return (
+                                    <div className="text-xs text-muted-foreground">
+                                        Not enough data for projection.
+                                    </div>
+                                );
+                            }
+                            const rawLive = isFiniteNumber(rawLast) ? rawLast : safeFirst;
+                            const safeLiveCurrent = safeAth > 0
+                                ? Math.max(0, Math.min(safeAth, rawLive))
+                                : rawLive;
                             const scrubProgress = Math.max(0, Math.min(100, scrubVisual));
                             const projected = Math.max(
                                 0,
@@ -1403,17 +1429,21 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
 
                                         {/* First Called marker */}
                                         <div
-                                            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-3 w-3 rounded-full border border-white/80 bg-white shadow-lg z-20 pointer-events-none"
+                                            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/80 bg-white shadow-lg z-20 pointer-events-none"
                                             style={{
+                                                width: '10px',
+                                                height: '10px',
                                                 left: `${firstMarkerLeft}%`,
-                                                boxShadow: '0 0 6px rgba(255,255,255,0.65)',
+                                                boxShadow: '0 0 8px rgba(255,255,255,0.6)',
                                             }}
                                         />
 
                                         {/* Live current marker */}
                                         <div
-                                            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-2.5 w-2.5 rounded-full border border-yellow-200/70 bg-yellow-300 shadow-lg z-25 pointer-events-none"
+                                            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-yellow-200/70 bg-yellow-300 shadow-lg z-25 pointer-events-none"
                                             style={{
+                                                width: '10px',
+                                                height: '10px',
                                                 left: `${liveMarkerLeft}%`,
                                                 boxShadow: '0 0 8px rgba(250,204,21,0.55)',
                                                 opacity: Math.abs(liveMarkerLeft - scrubProgress) < 0.5 ? 0 : 1,
@@ -1452,12 +1482,18 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                             );
                         })()}
                         {(() => {
-                            const { first, ath, current: liveCurrent } = scrubOverlay;
-                            const safeFirst = typeof first === "number" && Number.isFinite(first) ? first : 0;
-                            const safeAth = typeof ath === "number" && Number.isFinite(ath) ? ath : 0;
-                            const safeLiveCurrent = typeof liveCurrent === "number" && Number.isFinite(liveCurrent)
-                                ? liveCurrent
-                                : safeFirst;
+                            const rawFirst = toNumber(activeRecord?.first_mcap);
+                            const rawAth = toNumber(activeRecord?.ath_mcap);
+                            const rawLast = toNumber(activeRecord?.last_mcap);
+                            const safeFirst = isFiniteNumber(rawFirst) ? rawFirst : 0;
+                            const safeAth = isFiniteNumber(rawAth) && rawAth > 0 ? rawAth : 0;
+                            if (!activeRecord || safeAth === 0) {
+                                return null;
+                            }
+                            const rawLive = isFiniteNumber(rawLast) ? rawLast : safeFirst;
+                            const safeLiveCurrent = safeAth > 0
+                                ? Math.max(0, Math.min(safeAth, rawLive))
+                                : rawLive;
                             const scrubProgress = Math.max(0, Math.min(100, scrubVisual));
                             const projected = Math.max(
                                 0,
@@ -1467,38 +1503,19 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                             const fromFirst = safeFirst > 0 ? ((projected / safeFirst - 1) * 100) : 0;
                             return (
                                 <>
-                                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
                                         <span className="inline-flex items-center gap-1">
                                             <span>First:</span>
-                                            <span
-                                                className="inline-block rounded-full border border-white/70 bg-white"
-                                                style={{ width: '10px', height: '10px', boxShadow: '0 0 8px rgba(255,255,255,0.55)' }}
-                                                aria-hidden="true"
-                                            />
                                             <span
                                                 className="interactive-shimmer inline-flex tabular-nums font-semibold pointer-events-none select-text"
                                             >
                                                 {formatMcap(safeFirst)}
                                             </span>
                                         </span>
-                                        <span className="inline-flex items-center gap-1">
-                                            <span>Current:</span>
-                                            <span
-                                                className="inline-block rounded-full border border-yellow-200/70 bg-yellow-300"
-                                                style={{ width: '10px', height: '10px', boxShadow: '0 0 8px rgba(250,204,21,0.55)' }}
-                                                aria-hidden="true"
-                                            />
-                                            <span>{formatMcap(safeLiveCurrent)}</span>
-                                        </span>
-                                        <span className="inline-flex items-center gap-1">
-                                            <span>ATH:</span>
-                                            <span
-                                                className="inline-block rounded-full border border-green-200/70 bg-green-400"
-                                                style={{ width: '10px', height: '10px', boxShadow: '0 0 8px rgba(34,197,94,0.55)' }}
-                                                aria-hidden="true"
-                                            />
-                                            <span>{formatMcap(safeAth)}</span>
-                                        </span>
+                                        <span className="opacity-50">|</span>
+                                        <span>Current: {formatMcap(safeLiveCurrent)}</span>
+                                        <span className="opacity-50">|</span>
+                                        <span>ATH: {formatMcap(safeAth)}</span>
                                     </div>
                                     <div className="flex items-center justify-center gap-3 text-[11px]">
                                         <span>Lift needed: <span className="font-semibold text-green-600 dark:text-green-400" style={{ textShadow: '0 0 6px rgba(34,197,94,0.28)' }}>{liftNeeded.toFixed(1)}%</span></span>
