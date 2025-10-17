@@ -1160,7 +1160,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                     style={{
                         left: `${scrubOverlay.left}px`,
                         top: `${scrubOverlay.top}px`,
-                        maxHeight: 'calc(100vh - 2rem)',
+                        maxHeight: 'calc(100vh - 1rem)',
                         overflowY: 'auto'
                     }}
                     onMouseLeave={() => { setActiveScrubRow(null); setScrubOverlay(null); }}
