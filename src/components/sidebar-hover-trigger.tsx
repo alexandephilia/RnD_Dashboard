@@ -1,6 +1,6 @@
 "use client";
 
-import { useSidebar } from "@/components/ui/sidebar";
+import { useSidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarGroupContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from "@/components/ui/sidebar";
 import { RiLogoutBoxLine, RiScanLine, RiSettings3Line } from "@remixicon/react";
 import { Press_Start_2P } from "next/font/google";
 import { useEffect, useRef, useState } from "react";
@@ -80,52 +80,44 @@ export function SidebarHoverTrigger() {
                 animation: none !important;
             }
 
-            /* HIDE main sidebar during transformation */
+            /* Show main sidebar DURING transformation - positioned underneath */
             body:has(.hover-sidebar-transforming) [data-sidebar="sidebar"] {
-                opacity: 0 !important;
-                visibility: hidden !important;
+                opacity: 1 !important;
+                visibility: visible !important;
+                transition: none !important;
+                animation: none !important;
+                transform: none !important;
                 pointer-events: none !important;
             }
 
-            /* Optimize: Use transform instead of margin-left for GPU acceleration */
-            body:has(.hover-sidebar-transforming) [data-sidebar="sidebar-inset"] {
-                will-change: transform, opacity !important;
-                transform: translateX(var(--sidebar-width, 16rem)) !important;
-                opacity: 0.96 !important;
-                transition: transform 350ms ease-out, opacity 350ms ease-out !important;
+            /* Force disable ALL transitions on sidebar wrapper */
+            body:has(.hover-sidebar-transforming) .peer[data-sidebar],
+            body:has(.hover-sidebar-transform-complete) .peer[data-sidebar] {
+                transition: none !important;
             }
 
-            /* Show main sidebar container instantly */
+            /* Page content shifts DURING transformation - synchronized */
+            body:has(.hover-sidebar-transforming) [data-sidebar="sidebar-inset"] {
+                will-change: transform !important;
+                transform: translateX(var(--sidebar-width, 16rem)) !important;
+                transition: transform 350ms ease-out !important;
+            }
+
+            /* After transformation - main sidebar takes over */
             body:has(.hover-sidebar-transform-complete) [data-sidebar="sidebar"] {
                 opacity: 1 !important;
                 visibility: visible !important;
                 transition: none !important;
                 animation: none !important;
                 transform: none !important;
+                pointer-events: auto !important;
             }
 
-            /* Optimize: Only animate direct children, not all descendants */
-            body:has(.hover-sidebar-transform-complete) [data-sidebar="sidebar"] > [data-sidebar="header"],
-            body:has(.hover-sidebar-transform-complete) [data-sidebar="sidebar"] > [data-sidebar="content"],
-            body:has(.hover-sidebar-transform-complete) [data-sidebar="sidebar"] > [data-sidebar="footer"] {
-                animation: fadeInSidebarContent 250ms ease-out forwards !important;
-            }
-
-            @keyframes fadeInSidebarContent {
-                from {
-                    opacity: 0;
-                }
-                to {
-                    opacity: 1;
-                }
-            }
-
-            /* Restore page content - remove will-change after animation */
+            /* Page content stays in final position */
             body:has(.hover-sidebar-transform-complete) [data-sidebar="sidebar-inset"] {
                 will-change: auto !important;
                 transform: translateX(0) !important;
-                opacity: 1 !important;
-                transition: transform 200ms ease-out, opacity 200ms ease-out !important;
+                transition: none !important;
             }
         `;
         document.head.appendChild(style);
@@ -144,9 +136,9 @@ export function SidebarHoverTrigger() {
     return (
         <div
             ref={sidebarRef}
-            className={`fixed z-50 w-64 bg-sidebar border-r border-border shadow-2xl ${isTransforming
-                ? "hover-sidebar-transforming transition-all duration-[350ms] ease-out h-screen rounded-none"
-                : "transition-all duration-300 ease-out h-[70vh] rounded-r-2xl"
+            className={`fixed z-50 w-64 bg-sidebar border-r border-border ${isTransforming
+                ? "hover-sidebar-transforming transition-all duration-[350ms] ease-out h-screen rounded-none shadow-lg"
+                : "transition-all duration-300 ease-out h-[70vh] rounded-r-2xl shadow-2xl"
                 }`}
             style={{
                 left: 0,
@@ -166,9 +158,9 @@ export function SidebarHoverTrigger() {
                     }
             `}</style>
             {/* EXACT structure match to default sidebar */}
-            <div className="flex h-full w-full flex-col bg-sidebar">
+            <div data-sidebar="sidebar" className="flex h-full w-full flex-col bg-sidebar">
                 {/* Header with data attribute */}
-                <div data-sidebar="header" className="flex flex-col gap-2 p-2">
+                <SidebarHeader>
                     <div className="px-2 py-2">
                         <div className="flex items-center gap-3 h-12 rounded-md px-2 select-none">
                             <img
@@ -184,84 +176,85 @@ export function SidebarHoverTrigger() {
                         </div>
                     </div>
                     <hr className="border-t border-border mx-2 -mt-px" />
-                </div>
+                </SidebarHeader>
 
                 {/* Content with data attribute */}
-                <div data-sidebar="content" className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto">
+                <SidebarContent>
                     {/* Sections Group */}
-                    <div data-sidebar="group" className="relative flex w-full min-w-0 flex-col p-2">
-                        <div data-sidebar="group-label" className="flex h-8 shrink-0 items-center rounded-md px-2 text-xs font-medium uppercase text-muted-foreground/60">
+                    <SidebarGroup>
+                        <SidebarGroupLabel className="uppercase text-muted-foreground/60">
                             Sections
-                        </div>
-                        <div data-sidebar="group-content" className="w-full text-sm px-2">
-                            <ul data-sidebar="menu" className="flex w-full min-w-0 flex-col gap-1">
-                                <li data-sidebar="menu-item" className="group/menu-item relative">
-                                    <a
-                                        href="/dashboard"
-                                        data-sidebar="menu-button"
-                                        data-active="true"
-                                        className="flex w-full items-center overflow-hidden p-2 text-left gap-3 h-9 rounded-md bg-gradient-to-r from-yellow-500/12 to-yellow-500/5 border border-yellow-500/30 text-yellow-600 font-medium transition-colors hover:bg-transparent hover:from-sidebar-accent hover:to-sidebar-accent/40"
+                        </SidebarGroupLabel>
+                        <SidebarGroupContent className="px-2">
+                            <SidebarMenu>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton
+                                        asChild
+                                        className="group/menu-button font-medium gap-3 h-9 rounded-md bg-gradient-to-r transition-colors hover:bg-transparent hover:from-sidebar-accent hover:to-sidebar-accent/40 data-[active=true]:!bg-transparent data-[active=true]:from-yellow-500/12 data-[active=true]:to-yellow-500/5 data-[active=true]:border data-[active=true]:border-yellow-500/30 data-[active=true]:!text-yellow-600 [&>svg]:size-auto"
+                                        isActive
                                     >
-                                        <RiScanLine
-                                            className="text-yellow-500 shrink-0"
-                                            size={22}
-                                            aria-hidden="true"
-                                        />
-                                        <span className="truncate">Dashboard</span>
-                                    </a>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
+                                        <a href="/dashboard">
+                                            <RiScanLine
+                                                className="text-muted-foreground/60 group-data-[active=true]/menu-button:text-yellow-500"
+                                                size={22}
+                                                aria-hidden="true"
+                                                suppressHydrationWarning
+                                            />
+                                            <span>Dashboard</span>
+                                        </a>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            </SidebarMenu>
+                        </SidebarGroupContent>
+                    </SidebarGroup>
 
                     {/* Other Group */}
-                    <div data-sidebar="group" className="relative flex w-full min-w-0 flex-col p-2">
-                        <div data-sidebar="group-label" className="flex h-8 shrink-0 items-center rounded-md px-2 text-xs font-medium uppercase text-muted-foreground/60">
+                    <SidebarGroup>
+                        <SidebarGroupLabel className="uppercase text-muted-foreground/60">
                             Other
-                        </div>
-                        <div data-sidebar="group-content" className="w-full text-sm px-2">
-                            <ul data-sidebar="menu" className="flex w-full min-w-0 flex-col gap-1">
-                                <li data-sidebar="menu-item" className="group/menu-item relative">
-                                    <a
-                                        href="#"
-                                        data-sidebar="menu-button"
-                                        data-active="false"
-                                        className="flex w-full items-center overflow-hidden p-2 text-left gap-3 h-9 rounded-md font-medium transition-colors hover:bg-transparent hover:from-sidebar-accent hover:to-sidebar-accent/40"
+                        </SidebarGroupLabel>
+                        <SidebarGroupContent className="px-2">
+                            <SidebarMenu>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton
+                                        asChild
+                                        className="group/menu-button font-medium gap-3 h-9 rounded-md bg-gradient-to-r transition-colors hover:bg-transparent hover:from-sidebar-accent hover:to-sidebar-accent/40 data-[active=true]:!bg-transparent data-[active=true]:from-yellow-500/12 data-[active=true]:to-yellow-500/5 data-[active=true]:border data-[active=true]:border-yellow-500/30 data-[active=true]:!text-yellow-600 [&>svg]:size-auto"
                                     >
-                                        <RiSettings3Line
-                                            className="text-muted-foreground/60 shrink-0"
-                                            size={22}
-                                            aria-hidden="true"
-                                        />
-                                        <span className="truncate">Settings</span>
-                                    </a>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
+                                        <a href="#">
+                                            <RiSettings3Line
+                                                className="text-muted-foreground/60 group-data-[active=true]/menu-button:text-yellow-500"
+                                                size={22}
+                                                aria-hidden="true"
+                                                suppressHydrationWarning
+                                            />
+                                            <span>Settings</span>
+                                        </a>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            </SidebarMenu>
+                        </SidebarGroupContent>
+                    </SidebarGroup>
+                </SidebarContent>
 
                 {/* Footer with data attribute */}
-                <div data-sidebar="footer" className="flex flex-col gap-2 p-2">
+                <SidebarFooter>
                     <hr className="border-t border-border mx-2 -mt-px" />
-                    <ul data-sidebar="menu" className="flex w-full min-w-0 flex-col gap-1">
-                        <li data-sidebar="menu-item" className="group/menu-item relative">
-                            <a
-                                href="/logout"
-                                data-sidebar="menu-button"
-                                data-active="false"
-                                className="flex w-full items-center overflow-hidden p-2 text-left gap-3 h-9 rounded-md font-medium transition-colors hover:bg-transparent hover:from-sidebar-accent hover:to-sidebar-accent/40"
-                            >
-                                <RiLogoutBoxLine
-                                    className="text-muted-foreground/60 shrink-0"
-                                    size={22}
-                                    aria-hidden="true"
-                                />
-                                <span className="truncate">Sign Out</span>
-                            </a>
-                        </li>
-                    </ul>
-                </div>
+                    <SidebarMenu>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild className="font-medium gap-3 h-9 rounded-md bg-gradient-to-r hover:bg-transparent hover:from-sidebar-accent hover:to-sidebar-accent/40 data-[active=true]:from-yellow-500/15 data-[active=true]:to-yellow-500/5 [&>svg]:size-auto">
+                                <a href="/logout">
+                                    <RiLogoutBoxLine
+                                        className="text-muted-foreground/60 group-data-[active=true]/menu-button:text-yellow-500"
+                                        size={22}
+                                        aria-hidden="true"
+                                        suppressHydrationWarning
+                                    />
+                                    <span>Sign Out</span>
+                                </a>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    </SidebarMenu>
+                </SidebarFooter>
             </div>
         </div>
     );
