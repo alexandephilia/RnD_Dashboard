@@ -1,7 +1,7 @@
 "use client";
 
 import { Press_Start_2P } from "next/font/google";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { CheckIcon, CopyIcon, DownloadIcon, EyeIcon } from "lucide-react";
 
@@ -439,6 +439,7 @@ header: () => <div className="w-[120px] text-right">First Called</div>,
                     const athMcap = toNumber(row.original.ath_mcap);
                     const rowId = `${row.original.token_address}-${row.original.group_id}`;
                     const isActive = activeScrubRow === rowId;
+                    const isInteractive = Boolean(firstMcap && athMcap);
 
                     const openOverlay = (target: HTMLElement) => {
                         const rect = target.getBoundingClientRect();
@@ -447,8 +448,8 @@ header: () => <div className="w-[120px] text-right">First Called</div>,
                         setScrubOverlay({ rowId, first: firstMcap!, ath: athMcap!, left, top });
                     };
 
-                    const handleActivate = (e?: React.MouseEvent<HTMLElement>) => {
-                        if (firstMcap && athMcap) {
+                    const handleActivate = (e?: ReactMouseEvent<HTMLElement>) => {
+                        if (isInteractive && firstMcap !== null && athMcap !== null) {
                             setActiveScrubRow(rowId);
                             const firstPct = Math.min(100, Math.max(0, (firstMcap / athMcap) * 100));
                             const init = Number.isFinite(firstPct) ? firstPct : 0;
@@ -467,10 +468,17 @@ header: () => <div className="w-[120px] text-right">First Called</div>,
                     return (
                         <div className="relative w-[120px] text-right">
                             <button
-                                className="tabular-nums font-medium hover:text-yellow-600 dark:hover:text-yellow-400 transition-colors cursor-pointer"
+                                type="button"
+                                className={cn(
+                                    "tabular-nums font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500/40",
+                                    isInteractive
+                                        ? "interactive-shimmer cursor-pointer text-yellow-600 hover:text-yellow-500 dark:text-yellow-300 dark:hover:text-yellow-200"
+                                        : "cursor-not-allowed text-muted-foreground"
+                                )}
                                 onClick={(e) => handleActivate(e)}
                                 onMouseEnter={(e) => handleActivate(e)}
-                                disabled={!firstMcap || !athMcap}
+                                disabled={!isInteractive}
+                                data-active={isActive ? "true" : undefined}
                             >
                                 {formatMcap(row.original.first_mcap)}
                             </button>
