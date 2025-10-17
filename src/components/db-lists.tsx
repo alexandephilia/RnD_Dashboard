@@ -181,7 +181,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
         };
     }, [sortBy]);
 
-    // Dismiss scrub overlay on outside click
+    // Dismiss scrub overlay on outside click and handle window resize
     useEffect(() => {
         if (!scrubOverlay) return;
         const handleOutside = (e: MouseEvent | TouchEvent) => {
@@ -192,11 +192,21 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                 setScrubOverlay(null);
             }
         };
+
+        const handleResize = () => {
+            // Close overlay on resize to avoid positioning issues
+            setActiveScrubRow(null);
+            setScrubOverlay(null);
+        };
+
         document.addEventListener('mousedown', handleOutside);
         document.addEventListener('touchstart', handleOutside);
+        window.addEventListener('resize', handleResize);
+
         return () => {
             document.removeEventListener('mousedown', handleOutside);
             document.removeEventListener('touchstart', handleOutside);
+            window.removeEventListener('resize', handleResize);
         };
     }, [scrubOverlay]);
 
@@ -460,8 +470,35 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                     const openOverlay = (target: HTMLElement) => {
                         if (!canProject || firstValue === null || athValue === null) return;
                         const rect = target.getBoundingClientRect();
-                        const left = rect.left + window.scrollX + rect.width / 2;
-                        const top = rect.bottom + window.scrollY + 8;
+                        const overlayWidth = 300; // matches the fixed width in the overlay div
+                        const overlayHeight = 160; // approximate height of the overlay (adjust this to control top positioning)
+                        const padding = 16; // padding from viewport edges
+                        const spacingBelow = 8; // spacing when overlay appears below button
+                        const spacingAbove = 8; // spacing when overlay appears above button
+
+                        // Calculate initial position (centered below the button)
+                        let left = rect.left + window.scrollX + rect.width / 2;
+                        let top = rect.bottom + window.scrollY + spacingBelow;
+
+                        // Check if overlay would go off the right edge
+                        const rightEdge = left + overlayWidth / 2;
+                        if (rightEdge > window.innerWidth - padding) {
+                            left = window.innerWidth - padding - overlayWidth / 2 + window.scrollX;
+                        }
+
+                        // Check if overlay would go off the left edge
+                        const leftEdge = left - overlayWidth / 2;
+                        if (leftEdge < padding) {
+                            left = padding + overlayWidth / 2 + window.scrollX;
+                        }
+
+                        // Check if overlay would go off the bottom edge
+                        const bottomEdge = rect.bottom + overlayHeight + spacingBelow;
+                        if (bottomEdge > window.innerHeight) {
+                            // Position above the button instead
+                            top = rect.top + window.scrollY - overlayHeight - spacingAbove;
+                        }
+
                         setScrubOverlay({ rowId, first: firstValue, ath: athValue, left, top });
                     };
 
@@ -1130,8 +1167,13 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
             {scrubOverlay && (
                 <div
                     ref={overlayRef}
-                    className="fixed z-[100] w-[300px] -translate-x-1/2 bg-card border border-yellow-500/20 border-dashed rounded-lg p-3 shadow-xl"
-                    style={{ left: scrubOverlay.left, top: scrubOverlay.top }}
+                    className="fixed z-[100] w-[300px] max-w-[calc(100vw-2rem)] -translate-x-1/2 bg-card border border-yellow-500/20 border-dashed rounded-lg p-3 shadow-xl"
+                    style={{
+                        left: `${scrubOverlay.left}px`,
+                        top: `${scrubOverlay.top}px`,
+                        maxHeight: 'calc(100vh - 2rem)',
+                        overflowY: 'auto'
+                    }}
                     onMouseLeave={() => { setActiveScrubRow(null); setScrubOverlay(null); }}
                 >
                     <div className="flex justify-between items-center mb-3">
