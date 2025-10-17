@@ -270,14 +270,7 @@ function SidebarHoverTrigger({
                 {/* Header with data attribute */}
                 <SidebarHeader>
                     <div className="px-2 py-2">
-                        <div className="flex items-center gap-3 h-12 rounded-md px-2 select-none">
-                            <img
-                                src="/rnd.png"
-                                width={32}
-                                height={32}
-                                alt="RnD Admin"
-                                className="size-8 rounded-md"
-                            />
+                        <div className="flex items-center h-12 rounded-md px-2 select-none">
                             <span className={`font-semibold text-lg ${pressStart.className}`}>
                                 RnD Admin
                             </span>

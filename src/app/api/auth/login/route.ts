@@ -1,12 +1,40 @@
+import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
+
+const timingSafeEqual = (a: string, b: string): boolean => {
+  const aBuffer = Buffer.from(a, "utf8");
+  const bBuffer = Buffer.from(b, "utf8");
+  if (aBuffer.length !== bBuffer.length) return false;
+  return crypto.timingSafeEqual(aBuffer, bBuffer);
+};
 
 export async function POST(req: NextRequest) {
   try {
     const { email, password } = await req.json();
-    const expectedEmail = process.env.ADMIN_EMAIL || process.env.ADMIN_USER || "Retard";
-    const expectedPass = process.env.ADMIN_PASSWORD || process.env.ADMIN_PASS || "rnd420";
+    const expectedEmail = (process.env.ADMIN_EMAIL || process.env.ADMIN_USER || "").trim();
+    const expectedPassword = (process.env.ADMIN_PASSWORD || process.env.ADMIN_PASS || "").trim();
+    const expectedPasswordSha = (process.env.ADMIN_PASSWORD_SHA256 || "").trim().toLowerCase();
 
-    const ok = String(email || "").trim() === expectedEmail && String(password || "").trim() === expectedPass;
+    if (!expectedEmail || (!expectedPassword && !expectedPasswordSha)) {
+      return NextResponse.json({ error: "Login is not configured" }, { status: 500 });
+    }
+
+    const suppliedEmail = String(email ?? "").trim();
+    const suppliedPassword = String(password ?? "").trim();
+
+    const matchesPassword = (() => {
+      if (expectedPasswordSha) {
+        const suppliedDigest = crypto
+          .createHash("sha256")
+          .update(suppliedPassword, "utf8")
+          .digest("hex")
+          .toLowerCase();
+        return timingSafeEqual(suppliedDigest, expectedPasswordSha);
+      }
+      return timingSafeEqual(suppliedPassword, expectedPassword);
+    })();
+
+    const ok = timingSafeEqual(suppliedEmail, expectedEmail) && matchesPassword;
     if (!ok) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
