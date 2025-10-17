@@ -119,17 +119,18 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
     const [copied, setCopied] = useState(false);
     const [activeTab, setActiveTab] = useState<TabKey>("token-calls");
     const [activeScrubRow, setActiveScrubRow] = useState<string | null>(null);
-    const [scrubValue, setScrubValue] = useState<number>(0);
     const [scrubOverlay, setScrubOverlay] = useState<{
         rowId: string;
         first: number;
         ath: number;
+        current: number;
         left: number;
         top: number;
     } | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [justClicked, setJustClicked] = useState(false);
     const [scrubVisual, setScrubVisual] = useState<number>(0); // visual bar, may lag behind
+    const activeScrubRowId = scrubOverlay?.rowId ?? null;
     const clickDelayRef = useRef<number | null>(null);
     const overlayRef = useRef<HTMLDivElement | null>(null);
 
@@ -172,6 +173,58 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
             clearInterval(id);
         };
     }, [sortBy]);
+
+    useEffect(() => {
+        if (!activeScrubRowId) return;
+        const record = liveCalls.find((item) => {
+            const tokenAddress = item.token_address;
+            const groupId = item.group_id;
+            return `${tokenAddress}-${groupId}` === activeScrubRowId;
+        });
+        if (!record) return;
+
+        const rawFirst = toNumber(record.first_mcap);
+        const rawAth = toNumber(record.ath_mcap);
+        const rawLast = toNumber(record.last_mcap);
+
+        const firstValue = isFiniteNumber(rawFirst) ? rawFirst : null;
+        const athValue = isFiniteNumber(rawAth) ? rawAth : null;
+        const lastValue = isFiniteNumber(rawLast) ? rawLast : null;
+
+        if (firstValue === null || athValue === null || athValue <= 0) return;
+
+        const boundedCurrent = (() => {
+            if (lastValue === null) return firstValue;
+            if (firstValue > athValue) return firstValue;
+            return Math.max(firstValue, Math.min(athValue, lastValue));
+        })();
+
+        const nextPercent = Math.max(
+            0,
+            Math.min(100, (boundedCurrent / athValue) * 100),
+        );
+
+        setScrubOverlay((prev) => {
+            if (!prev || prev.rowId !== activeScrubRowId) return prev;
+            if (
+                prev.first === firstValue &&
+                prev.ath === athValue &&
+                prev.current === boundedCurrent
+            ) {
+                return prev;
+            }
+            return {
+                ...prev,
+                first: firstValue,
+                ath: athValue,
+                current: boundedCurrent,
+            };
+        });
+
+        if (!isDragging && !justClicked) {
+            setScrubVisual((prev) => (prev === nextPercent ? prev : nextPercent));
+        }
+    }, [liveCalls, activeScrubRowId, isDragging, justClicked]);
 
     // Dismiss scrub overlay on outside click, handle resize, and update position on scroll
     useEffect(() => {
@@ -491,11 +544,24 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                 cell: ({ row }) => {
                     const rawFirst = toNumber(row.original.first_mcap);
                     const rawAth = toNumber(row.original.ath_mcap);
+                    const rawLast = toNumber(row.original.last_mcap);
                     const firstValue = isFiniteNumber(rawFirst) ? rawFirst : null;
                     const athValue = isFiniteNumber(rawAth) ? rawAth : null;
+                    const lastValue = isFiniteNumber(rawLast) ? rawLast : null;
                     const canProject = firstValue !== null && athValue !== null && athValue > 0;
                     const rowId = `${row.original.token_address}-${row.original.group_id}`;
                     const isActive = activeScrubRow === rowId;
+                    const sliderTarget = (() => {
+                        if (!canProject || firstValue === null || athValue === null) return null;
+                        const base = lastValue ?? firstValue;
+                        if (base === null) return null;
+                        if (athValue <= 0) return firstValue;
+                        if (firstValue > athValue) return firstValue;
+                        return Math.max(firstValue, Math.min(athValue, base));
+                    })();
+                    const initialPercentage = sliderTarget !== null && athValue
+                        ? Math.max(0, Math.min(100, (sliderTarget / athValue) * 100))
+                        : 0;
 
                     const openOverlay = (target: HTMLElement) => {
                         if (!canProject || firstValue === null || athValue === null) return;
@@ -529,16 +595,32 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                             top = rect.top - overlayHeight - spacingAbove;
                         }
 
-                        setScrubOverlay({ rowId, first: firstValue, ath: athValue, left, top });
+                        const currentValue = sliderTarget ?? firstValue;
+                        setScrubOverlay({
+                            rowId,
+                            first: firstValue,
+                            ath: athValue,
+                            current: currentValue ?? firstValue,
+                            left,
+                            top,
+                        });
                     };
 
                     const handleActivate = (e?: ReactMouseEvent<HTMLElement>) => {
                         if (!canProject || firstValue === null || athValue === null) return;
                         setActiveScrubRow(rowId);
-                        const firstPct = Math.min(100, Math.max(0, (firstValue / athValue) * 100));
-                        const init = Number.isFinite(firstPct) ? firstPct : 0;
-                        setScrubValue(init);
+                        const init = Number.isFinite(initialPercentage) ? initialPercentage : 0;
                         setScrubVisual(init);
+                        setScrubOverlay(prev => {
+                            if (!prev || prev.rowId !== rowId) return prev;
+                            const currentValue = sliderTarget ?? firstValue;
+                            return {
+                                ...prev,
+                                first: firstValue,
+                                ath: athValue,
+                                current: currentValue ?? firstValue,
+                            };
+                        });
                         if (e) openOverlay(e.currentTarget as HTMLElement);
                     };
 
@@ -1249,7 +1331,6 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                                 const rect = e.currentTarget.getBoundingClientRect();
                                 const clickX = e.clientX - rect.left;
                                 const percentage = Math.max(0, Math.min(100, (clickX / rect.width) * 100));
-                                setScrubValue(percentage);
                                 setJustClicked(true);
                                 if (clickDelayRef.current) clearTimeout(clickDelayRef.current);
                                 clickDelayRef.current = window.setTimeout(() => {
@@ -1270,7 +1351,6 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                                 const handleMouseMove = (moveEvent: MouseEvent) => {
                                     const moveX = moveEvent.clientX - trackRect.left;
                                     const percentage = Math.max(0, Math.min(100, (moveX / trackRect.width) * 100));
-                                    setScrubValue(percentage);
                                     setScrubVisual(percentage);
                                 };
 
@@ -1319,8 +1399,11 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
 
                                         {/* First Called marker */}
                                         <div
-                                            className="absolute top-1/2 -translate-y-1/2 w-1 h-4 bg-yellow-400 rounded-full shadow-lg z-20 pointer-events-none"
-                                            style={{ left: `${firstMarkerLeft}%`, boxShadow: '0 0 8px rgba(250, 204, 21, 0.7)' }}
+                                            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-3 w-3 rounded-full border border-white/80 bg-white shadow-lg z-20 pointer-events-none"
+                                            style={{
+                                                left: `${firstMarkerLeft}%`,
+                                                boxShadow: '0 0 6px rgba(255,255,255,0.65)',
+                                            }}
                                         />
 
                                         {/* ATH marker */}
@@ -1367,16 +1450,34 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                             return (
                                 <>
                                     <div className="flex justify-between text-[10px] text-muted-foreground">
-                                        <span>
-                                            First:{" "}
+                                        <span className="inline-flex items-center gap-1">
+                                            <span>First:</span>
+                                            <span
+                                                className="inline-block h-2 w-2 rounded-full border border-white/60 bg-white shadow-[0_0_4px_rgba(255,255,255,0.6)]"
+                                                aria-hidden="true"
+                                            />
                                             <span
                                                 className="interactive-shimmer inline-flex tabular-nums font-semibold pointer-events-none select-text"
                                             >
                                                 {formatMcap(safeFirst)}
                                             </span>
                                         </span>
-                                        <span>Current: {formatMcap(current)}</span>
-                                        <span>ATH: {formatMcap(safeAth)}</span>
+                                        <span className="inline-flex items-center gap-1">
+                                            <span>Current:</span>
+                                            <span
+                                                className="inline-block h-2 w-2 rounded-full bg-yellow-400 shadow-[0_0_4px_rgba(250,204,21,0.6)]"
+                                                aria-hidden="true"
+                                            />
+                                            <span>{formatMcap(current)}</span>
+                                        </span>
+                                        <span className="inline-flex items-center gap-1">
+                                            <span>ATH:</span>
+                                            <span
+                                                className="inline-block h-2 w-2 rounded-full bg-green-500 shadow-[0_0_4px_rgba(34,197,94,0.55)]"
+                                                aria-hidden="true"
+                                            />
+                                            <span>{formatMcap(safeAth)}</span>
+                                        </span>
                                     </div>
                                     <div className="flex items-center justify-center gap-3 text-[11px]">
                                         <span>Lift needed: <span className="font-semibold text-green-600 dark:text-green-400" style={{ textShadow: '0 0 6px rgba(34,197,94,0.28)' }}>{liftNeeded.toFixed(1)}%</span></span>
