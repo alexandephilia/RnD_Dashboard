@@ -18,8 +18,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import {
     SidebarInset,
-    SidebarProvider,
-    SidebarTrigger,
+    SidebarProvider
 } from "@/components/ui/sidebar";
 import UserDropdown from "@/components/user-dropdown";
 import { RiScanLine } from "@remixicon/react";
@@ -27,7 +26,8 @@ import { Press_Start_2P } from "next/font/google";
 
 const pressStart = Press_Start_2P({ weight: "400", subsets: ["latin"] });
 
-import { SidebarHoverTrigger } from "@/components/sidebar-hover-trigger";
+import { FloatingSidebarProvider } from "@/components/sidebar-hover-trigger";
+import { SidebarTriggerSmart } from "@/components/sidebar-trigger-smart";
 import { StatsLive } from "@/components/stats-live";
 import { getDbAndCollections, getMongoClient } from "@/server/db/mongo";
 import { RiBarChartLine, RiDatabaseLine, RiGroupLine, RiUserLine } from "@remixicon/react";
@@ -297,47 +297,48 @@ export default async function Page() {
     return (
         <SidebarProvider>
             <AppSidebar />
-            <SidebarHoverTrigger />
-            <SidebarInset className="overflow-hidden px-4 md:px-6 lg:px-8">
-                <header className="flex h-16 shrink-0 items-center gap-2 border-b">
-                    <div className="flex flex-1 items-center gap-2 px-3">
-                        <SidebarTrigger className="-ms-4" />
-                        <Separator
-                            orientation="vertical"
-                            className="mr-2 data-[orientation=vertical]:h-4"
-                        />
-                        <Breadcrumb>
-                            <BreadcrumbList>
-                                <BreadcrumbItem className="hidden md:block">
-                                    <BreadcrumbLink href="#">
-                                        <RiScanLine size={22} aria-hidden="true" suppressHydrationWarning />
-                                        <span className="sr-only">Dashboard</span>
-                                    </BreadcrumbLink>
-                                </BreadcrumbItem>
-                                <BreadcrumbSeparator className="hidden md:block" />
-                                <BreadcrumbItem>
-                                    <BreadcrumbPage className={pressStart.className}>Dashboard</BreadcrumbPage>
-                                </BreadcrumbItem>
-                            </BreadcrumbList>
-                        </Breadcrumb>
-                    </div>
-                    <div className="flex gap-3 ml-auto">
-                        <UserDropdown />
-                    </div>
-                </header>
-                <div className="flex flex-1 flex-col gap-4 lg:gap-6 py-4 lg:py-6">
-                    {/* Page intro */}
-                    <div className="flex items-center justify-between gap-4">
-                        <div className="space-y-1">
-                            <h1 className={`text-2xl font-semibold ${pressStart.className}`}>Hey, {adminName}!</h1>
+            <FloatingSidebarProvider>
+                <SidebarInset className="overflow-hidden px-4 md:px-6 lg:px-8">
+                    <header className="flex h-16 shrink-0 items-center gap-2 border-b">
+                        <div className="flex flex-1 items-center gap-2 px-3">
+                            <SidebarTriggerSmart className="-ms-4" />
+                            <Separator
+                                orientation="vertical"
+                                className="mr-2 data-[orientation=vertical]:h-4"
+                            />
+                            <Breadcrumb>
+                                <BreadcrumbList>
+                                    <BreadcrumbItem className="hidden md:block">
+                                        <BreadcrumbLink href="#">
+                                            <RiScanLine size={22} aria-hidden="true" suppressHydrationWarning />
+                                            <span className="sr-only">Dashboard</span>
+                                        </BreadcrumbLink>
+                                    </BreadcrumbItem>
+                                    <BreadcrumbSeparator className="hidden md:block" />
+                                    <BreadcrumbItem>
+                                        <BreadcrumbPage className={pressStart.className}>Dashboard</BreadcrumbPage>
+                                    </BreadcrumbItem>
+                                </BreadcrumbList>
+                            </Breadcrumb>
                         </div>
+                        <div className="flex gap-3 ml-auto">
+                            <UserDropdown />
+                        </div>
+                    </header>
+                    <div className="flex flex-1 flex-col gap-4 lg:gap-6 py-4 lg:py-6">
+                        {/* Page intro */}
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="space-y-1">
+                                <h1 className={`text-2xl font-semibold ${pressStart.className}`}>Hey, {adminName}!</h1>
+                            </div>
+                        </div>
+                        {/* Numbers (24h, live-updated from /api/rnd/stats) */}
+                        <StatsLive initial={stats} periodLabel={periodLabel} />
+                        <DbLists tokenCalls={tokenCallsPlain} users={usersPlain} groupMonthlyTokens={groupMonthlyPlain} />
                     </div>
-                    {/* Numbers (24h, live-updated from /api/rnd/stats) */}
-                    <StatsLive initial={stats} periodLabel={periodLabel} />
-                    <DbLists tokenCalls={tokenCallsPlain} users={usersPlain} groupMonthlyTokens={groupMonthlyPlain} />
-                </div>
-            </SidebarInset>
-            <SystemStatus tokenCalls={tokenCallsPlain} users={usersPlain} />
+                </SidebarInset>
+                <SystemStatus tokenCalls={tokenCallsPlain} users={usersPlain} />
+            </FloatingSidebarProvider>
         </SidebarProvider>
     );
 }
