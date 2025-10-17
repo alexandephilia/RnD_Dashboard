@@ -1,11 +1,12 @@
 "use client";
 
-import { Press_Start_2P } from "next/font/google";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { CheckIcon, CopyIcon, DownloadIcon, EyeIcon } from "lucide-react";
+import { Press_Start_2P } from "next/font/google";
+import { type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DataTable } from "@/components/data-table";
+import { JsonTreeViewer } from "@/components/json-tree-viewer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,7 +16,6 @@ import {
     SheetTitle,
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { JsonTreeViewer } from "@/components/json-tree-viewer";
 import { cn } from "@/lib/utils";
 
 const pressStart = Press_Start_2P({ weight: "400", subsets: ["latin"] });
@@ -67,16 +67,29 @@ const formatMcap = (value: unknown): string => {
     const num = toNumber(value);
     if (num === null) return "—";
     if (num >= 1_000_000_000) {
-        return `$${(num / 1_000_000_000).toFixed(2)}B`;
+        return `${(num / 1_000_000_000).toFixed(2)}B`;
     }
     if (num >= 1_000_000) {
-        return `$${(num / 1_000_000).toFixed(2)}M`;
+        return `${(num / 1_000_000).toFixed(2)}M`;
     }
     if (num >= 1_000) {
-        return `$${(num / 1_000).toFixed(2)}K`;
+        return `${(num / 1_000).toFixed(2)}K`;
     }
-    return `$${num.toFixed(2)}`;
+    return `${num.toFixed(2)}`;
 };
+
+const isFiniteNumber = (value: unknown): value is number =>
+    typeof value === "number" && Number.isFinite(value);
+
+type ShimmerStateAttrs = {
+    "data-negative"?: "true";
+    "data-zero"?: "true";
+};
+
+const shimmerStateFor = (value: number | null): ShimmerStateAttrs => ({
+    "data-zero": value === 0 ? "true" : undefined,
+    "data-negative": value !== null && value < 0 ? "true" : undefined,
+});
 
 const toMillis = (value: unknown): number => {
     if (typeof value === "number") return value;
@@ -299,7 +312,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
             .sort((a, b) => a - b);
 
         const getPct = (p: number) => counts.length ? (counts[Math.floor(counts.length * p)] || 0) : 0;
-        
+
         return {
             p10: getPct(0.10),
             p15: getPct(0.15),
@@ -315,7 +328,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
         return [
             {
                 id: "token",
-header: () => <div className="w-[220px] text-left">Token</div>,
+                header: () => <div className="w-[220px] text-left">Token</div>,
                 accessorFn: (row) => {
                     const info = row.token_info as GenericRecord | undefined;
                     const name = typeof info?.name === "string" ? info.name : "";
@@ -376,12 +389,12 @@ header: () => <div className="w-[220px] text-left">Token</div>,
             },
             {
                 accessorKey: "group_id",
-header: () => <div className="w-[140px] text-left">Group ID</div>,
+                header: () => <div className="w-[140px] text-left">Group ID</div>,
                 cell: ({ row }) => (
                     <div className="w-[140px] text-left">
                         {typeof row.original.group_id === "string" && row.original.group_id !== "—" ? (
-                            <Badge 
-                                variant="secondary" 
+                            <Badge
+                                variant="secondary"
                                 className="w-fit font-mono text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
                             >
                                 {row.original.group_id}
@@ -394,7 +407,7 @@ header: () => <div className="w-[140px] text-left">Group ID</div>,
             },
             {
                 id: "poster",
-header: () => <div className="w-[160px] text-center">First Poster</div>,
+                header: () => <div className="w-[160px] text-center">First Poster</div>,
                 accessorFn: (row) => {
                     const poster = row.first_poster as GenericRecord | undefined;
                     const firstName = typeof poster?.first_name === "string" ? poster.first_name : "";
@@ -417,8 +430,8 @@ header: () => <div className="w-[160px] text-center">First Poster</div>,
                         <div className="flex w-[160px] flex-col items-center">
                             <span className="truncate text-sm font-medium">{displayName}</span>
                             {username !== "—" ? (
-                                <Badge 
-                                    variant="secondary" 
+                                <Badge
+                                    variant="secondary"
                                     className="w-fit text-[10px] font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
                                 >
                                     @{username}
@@ -433,65 +446,88 @@ header: () => <div className="w-[160px] text-center">First Poster</div>,
             },
             {
                 accessorKey: "first_mcap",
-header: () => <div className="w-[120px] text-right">First Called</div>,
+                header: () => <div className="w-[120px] text-right">First Called</div>,
                 cell: ({ row }) => {
-                    const firstMcap = toNumber(row.original.first_mcap);
-                    const athMcap = toNumber(row.original.ath_mcap);
+                    const rawFirst = toNumber(row.original.first_mcap);
+                    const rawAth = toNumber(row.original.ath_mcap);
+                    const firstValue = isFiniteNumber(rawFirst) ? rawFirst : null;
+                    const athValue = isFiniteNumber(rawAth) ? rawAth : null;
+                    const canProject = firstValue !== null && athValue !== null && athValue > 0;
                     const rowId = `${row.original.token_address}-${row.original.group_id}`;
                     const isActive = activeScrubRow === rowId;
+                    const shimmerAttrs = shimmerStateFor(firstValue);
 
                     const openOverlay = (target: HTMLElement) => {
+                        if (!canProject || firstValue === null || athValue === null) return;
                         const rect = target.getBoundingClientRect();
                         const left = rect.left + window.scrollX + rect.width / 2;
                         const top = rect.bottom + window.scrollY + 8;
-                        setScrubOverlay({ rowId, first: firstMcap!, ath: athMcap!, left, top });
+                        setScrubOverlay({ rowId, first: firstValue, ath: athValue, left, top });
                     };
 
-                    const handleActivate = (e?: React.MouseEvent<HTMLElement>) => {
-                        if (firstMcap && athMcap) {
-                            setActiveScrubRow(rowId);
-                            const firstPct = Math.min(100, Math.max(0, (firstMcap / athMcap) * 100));
-                            const init = Number.isFinite(firstPct) ? firstPct : 0;
-                            setScrubValue(init);
-                            setScrubVisual(init);
-                            if (e) openOverlay(e.currentTarget as HTMLElement);
-                        }
+                    const handleActivate = (e?: ReactMouseEvent<HTMLElement>) => {
+                        if (!canProject || firstValue === null || athValue === null) return;
+                        setActiveScrubRow(rowId);
+                        const firstPct = Math.min(100, Math.max(0, (firstValue / athValue) * 100));
+                        const init = Number.isFinite(firstPct) ? firstPct : 0;
+                        setScrubValue(init);
+                        setScrubVisual(init);
+                        if (e) openOverlay(e.currentTarget as HTMLElement);
                     };
 
-                    const handleDeactivate = () => {
-                        setActiveScrubRow(null);
-                        setScrubValue(0);
-                        setScrubOverlay(null);
-                    };
+                    if (firstValue === null) {
+                        return (
+                            <div className="relative w-[120px] text-right">
+                                <span className="block tabular-nums font-medium text-muted-foreground">—</span>
+                            </div>
+                        );
+                    }
+
+                    const formatted = formatMcap(firstValue);
 
                     return (
                         <div className="relative w-[120px] text-right">
-                            <button
-                                className="tabular-nums font-medium hover:text-yellow-600 dark:hover:text-yellow-400 transition-colors cursor-pointer"
-                                onClick={(e) => handleActivate(e)}
-                                onMouseEnter={(e) => handleActivate(e)}
-                                disabled={!firstMcap || !athMcap}
-                            >
-                                {formatMcap(row.original.first_mcap)}
-                            </button>
+                            {canProject ? (
+                                <button
+                                    type="button"
+                                    className="inline-flex w-full justify-end focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500/40"
+                                    onClick={(e) => handleActivate(e)}
+                                    onMouseEnter={(e) => handleActivate(e)}
+                                    data-active={isActive ? "true" : undefined}
+                                >
+                                    <span
+                                        className="interactive-shimmer block text-right tabular-nums font-medium"
+                                        {...shimmerAttrs}
+                                    >
+                                        {formatted}
+                                    </span>
+                                </button>
+                            ) : (
+                                <span
+                                    className="interactive-shimmer block tabular-nums font-medium pointer-events-none select-text"
+                                    {...shimmerAttrs}
+                                >
+                                    {formatted}
+                                </span>
+                            )}
                         </div>
                     );
                 },
             },
             {
                 accessorKey: "ath_mcap",
-header: () => <div className="w-[160px] text-right">ATH</div>,
+                header: () => <div className="w-[160px] text-right">ATH</div>,
                 cell: ({ row }) => {
                     const ath = toNumber(row.original.ath_mcap);
                     const last = toNumber(row.original.last_mcap);
-                    
+
                     // Calculate progress percentage (how close last_mcap is to ATH)
-                    const progressPct = ath && last && ath > 0 
-                        ? Math.min(100, (last / ath) * 100) 
+                    const progressPct = ath && last && ath > 0
+                        ? Math.min(100, (last / ath) * 100)
                         : null;
-                    
+
                     const isAtOrAboveATH = progressPct !== null && progressPct >= 99.5;
-                    
+
                     return (
                         <div className="flex w-[160px] flex-col gap-1 items-end">
                             <span className="tabular-nums font-medium text-green-600 dark:text-green-400">
@@ -503,7 +539,7 @@ header: () => <div className="w-[160px] text-right">ATH</div>,
                                         {/* Glow underlay */}
                                         <div
                                             className="absolute top-1/2 -translate-y-1/2 h-3 rounded-full"
-                                            style={{ 
+                                            style={{
                                                 width: `${progressPct}%`,
                                                 background: 'linear-gradient(to right, rgb(239, 68, 68) 0%, rgb(251, 146, 60) 25%, rgb(250, 204, 21) 50%, rgb(163, 230, 53) 75%, rgb(34, 197, 94) 100%)',
                                                 filter: 'blur(6px)',
@@ -514,7 +550,7 @@ header: () => <div className="w-[160px] text-right">ATH</div>,
                                         {/* Foreground progress bar */}
                                         <div
                                             className="relative h-full rounded-full"
-                                            style={{ 
+                                            style={{
                                                 width: `${progressPct}%`,
                                                 background: 'linear-gradient(to right, rgb(239, 68, 68) 0%, rgb(251, 146, 60) 25%, rgb(250, 204, 21) 50%, rgb(163, 230, 53) 75%, rgb(34, 197, 94) 100%)',
                                                 transition: 'width 500ms ease-in-out'
@@ -532,7 +568,7 @@ header: () => <div className="w-[160px] text-right">ATH</div>,
             },
             {
                 accessorKey: "post_count",
-header: () => <div className="w-[90px] text-center">Posts</div>,
+                header: () => <div className="w-[90px] text-center">Posts</div>,
                 cell: ({ row }) => {
                     const count = toNumber(row.original.post_count) ?? 0;
 
@@ -577,8 +613,8 @@ header: () => <div className="w-[90px] text-center">Posts</div>,
 
                     return (
                         <div className="flex w-[90px] flex-col items-center gap-1 min-w-[60px]">
-                            <Badge 
-                                variant="secondary" 
+                            <Badge
+                                variant="secondary"
                                 className={cn(
                                     "text-[10px] font-semibold px-2 py-0.5",
                                     tierColor
@@ -595,7 +631,7 @@ header: () => <div className="w-[90px] text-center">Posts</div>,
             },
             {
                 accessorKey: "last_updated",
-header: () => <div className="w-[150px] text-right">Last Updated</div>,
+                header: () => <div className="w-[150px] text-right">Last Updated</div>,
                 cell: ({ row }) => (
                     <div className="w-[150px] text-right">
                         <span className="whitespace-nowrap text-xs text-muted-foreground">
@@ -654,7 +690,7 @@ header: () => <div className="w-[150px] text-right">Last Updated</div>,
         return [
             {
                 id: "user",
-header: () => <div className="w-[180px] text-left">User</div>,
+                header: () => <div className="w-[180px] text-left">User</div>,
                 accessorFn: (row) => {
                     const firstName = typeof row.first_name === "string" ? row.first_name : "";
                     const username = typeof row.username === "string" ? row.username : "";
@@ -680,26 +716,26 @@ header: () => <div className="w-[180px] text-left">User</div>,
             },
             {
                 accessorKey: "user_id",
-header: () => <div className="w-[140px] text-left">User ID</div>,
+                header: () => <div className="w-[140px] text-left">User ID</div>,
                 cell: ({ row }) => (
                     <div className="w-[140px] text-left">
                         <span className="font-mono text-xs">
-                        {typeof row.original.user_id === "string"
-                            ? row.original.user_id
-                            : "—"}
+                            {typeof row.original.user_id === "string"
+                                ? row.original.user_id
+                                : "—"}
                         </span>
                     </div>
                 ),
             },
             {
                 accessorKey: "is_active",
-header: () => <div className="w-[100px] text-center">Status</div>,
+                header: () => <div className="w-[100px] text-center">Status</div>,
                 cell: ({ row }) => {
                     const isActive = row.original.is_active === true;
                     const statusColor = isActive
                         ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                         : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
-                    
+
                     return (
                         <div className="w-[100px] flex justify-center">
                             <Badge
@@ -717,7 +753,7 @@ header: () => <div className="w-[100px] text-center">Status</div>,
             },
             {
                 accessorKey: "joined_at",
-header: () => <div className="w-[150px] text-right">Joined</div>,
+                header: () => <div className="w-[150px] text-right">Joined</div>,
                 cell: ({ row }) => (
                     <div className="w-[150px] text-right">
                         <span className="whitespace-nowrap text-xs text-muted-foreground">
@@ -766,9 +802,9 @@ header: () => <div className="w-[150px] text-right">Joined</div>,
                 cell: ({ row }) => (
                     <div className="w-[140px] text-left">
                         <span className="font-mono text-xs">
-                        {typeof row.original.group_id === "string"
-                            ? row.original.group_id
-                            : "—"}
+                            {typeof row.original.group_id === "string"
+                                ? row.original.group_id
+                                : "—"}
                         </span>
                     </div>
                 ),
@@ -790,11 +826,11 @@ header: () => <div className="w-[150px] text-right">Joined</div>,
                 cell: ({ row }) => {
                     const tokens = row.original.tokens as Array<{ post_count?: number }> | undefined;
                     const count = Array.isArray(tokens) ? tokens.length : 0;
-                    
+
                     // Calculate diversity: Herfindahl-Hirschman Index (HHI) concentration
                     let diversity: string;
                     let diversityColor: string;
-                    
+
                     if (count === 0) {
                         diversity = "None";
                         diversityColor = "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
@@ -804,7 +840,7 @@ header: () => <div className="w-[150px] text-right">Joined</div>,
                     } else {
                         const postCounts = tokens?.map(t => toNumber(t.post_count) || 0) || [];
                         const totalPosts = postCounts.reduce((sum, c) => sum + c, 0);
-                        
+
                         if (totalPosts === 0) {
                             diversity = "Balanced";
                             diversityColor = "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
@@ -814,7 +850,7 @@ header: () => <div className="w-[150px] text-right">Joined</div>,
                                 const share = c / totalPosts;
                                 return sum + (share * share);
                             }, 0);
-                            
+
                             // HHI interpretation:
                             // < 0.15: Balanced (many tokens with similar activity)
                             // 0.15-0.25: Mixed (moderate concentration)
@@ -831,11 +867,11 @@ header: () => <div className="w-[150px] text-right">Joined</div>,
                             }
                         }
                     }
-                    
+
                     return (
                         <div className="flex w-[110px] flex-col items-center gap-1">
-                            <Badge 
-                                variant="secondary" 
+                            <Badge
+                                variant="secondary"
                                 className={cn(
                                     "text-[10px] font-semibold px-2 py-0.5",
                                     diversityColor
@@ -897,8 +933,8 @@ header: () => <div className="w-[150px] text-right">Joined</div>,
 
                     return (
                         <div className="flex w-[100px] flex-col items-center gap-1">
-                            <Badge 
-                                variant="secondary" 
+                            <Badge
+                                variant="secondary"
                                 className={cn(
                                     "text-[10px] font-semibold px-2 py-0.5",
                                     tierColor
@@ -957,34 +993,34 @@ header: () => <div className="w-[150px] text-right">Joined</div>,
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <h2 className={`text-sm font-semibold ${pressStart.className}`}>Explore Data</h2>
                     <TabsList className="relative flex w-full max-w-md gap-2 -mb-[10px] lg:ml-auto">
-                            <span
-                                className="pointer-events-none absolute bottom-0 left-0 h-full rounded-t-lg border border-b-0 border-border bg-muted/20 shadow-sm transition-all duration-500 ease-in-out"
-                                style={{
-                                    transform: `translateX(calc(${tabIndex * 100}% + ${tabIndex * 8}px))`,
-                                    width: `calc(${100 / TAB_ORDER.length}% - ${(TAB_ORDER.length - 1) * 8 / TAB_ORDER.length}px)`,
-                                    transitionDelay: '75ms'
-                                }}
-                                aria-hidden="true"
-                            />
-                            <TabsTrigger
-                                value="token-calls"
-                                className="relative z-10 flex-1 border-transparent px-2 py-2 text-xs sm:px-4 sm:text-sm font-medium text-muted-foreground transition-colors duration-300 delay-100 data-[state=active]:text-foreground"
-                            >
-                                Token Calls
-                            </TabsTrigger>
-                            <TabsTrigger
-                                value="users"
-                                className="relative z-10 flex-1 border-transparent px-2 py-2 text-xs sm:px-4 sm:text-sm font-medium text-muted-foreground transition-colors duration-300 delay-100 data-[state=active]:text-foreground"
-                            >
-                                Users
-                            </TabsTrigger>
-                            <TabsTrigger
-                                value="group-monthly"
-                                className="relative z-10 flex-1 border-transparent px-2 py-2 text-xs sm:px-4 sm:text-sm font-medium text-muted-foreground transition-colors duration-300 delay-100 data-[state=active]:text-foreground"
-                            >
-                                Group Monthly
-                            </TabsTrigger>
-                        </TabsList>
+                        <span
+                            className="pointer-events-none absolute bottom-0 left-0 h-full rounded-t-lg border border-b-0 border-border bg-muted/20 shadow-sm transition-all duration-500 ease-in-out"
+                            style={{
+                                transform: `translateX(calc(${tabIndex * 100}% + ${tabIndex * 8}px))`,
+                                width: `calc(${100 / TAB_ORDER.length}% - ${(TAB_ORDER.length - 1) * 8 / TAB_ORDER.length}px)`,
+                                transitionDelay: '75ms'
+                            }}
+                            aria-hidden="true"
+                        />
+                        <TabsTrigger
+                            value="token-calls"
+                            className="relative z-10 flex-1 border-transparent px-2 py-2 text-xs sm:px-4 sm:text-sm font-medium text-muted-foreground transition-colors duration-300 delay-100 data-[state=active]:text-foreground"
+                        >
+                            Token Calls
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="users"
+                            className="relative z-10 flex-1 border-transparent px-2 py-2 text-xs sm:px-4 sm:text-sm font-medium text-muted-foreground transition-colors duration-300 delay-100 data-[state=active]:text-foreground"
+                        >
+                            Users
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="group-monthly"
+                            className="relative z-10 flex-1 border-transparent px-2 py-2 text-xs sm:px-4 sm:text-sm font-medium text-muted-foreground transition-colors duration-300 delay-100 data-[state=active]:text-foreground"
+                        >
+                            Group Monthly
+                        </TabsTrigger>
+                    </TabsList>
                 </div>
 
                 <TabsContent value="token-calls" className="mt-0">
@@ -1091,16 +1127,16 @@ header: () => <div className="w-[150px] text-right">Joined</div>,
             </Tabs>
 
             {/* Scrub overlay (fixed, outside table to avoid clipping) */}
-                {scrubOverlay && (
+            {scrubOverlay && (
                 <div
                     ref={overlayRef}
-className="fixed z-[100] w-[300px] -translate-x-1/2 bg-card border border-yellow-500/20 border-dashed rounded-lg p-3 shadow-xl"
+                    className="fixed z-[100] w-[300px] -translate-x-1/2 bg-card border border-yellow-500/20 border-dashed rounded-lg p-3 shadow-xl"
                     style={{ left: scrubOverlay.left, top: scrubOverlay.top }}
                     onMouseLeave={() => { setActiveScrubRow(null); setScrubOverlay(null); }}
                 >
-<div className="flex justify-between items-center mb-3">
+                    <div className="flex justify-between items-center mb-3">
                         <span className="text-xs font-medium">Compare Range</span>
-                        <button 
+                        <button
                             className="text-xs text-muted-foreground hover:text-foreground"
                             onClick={() => { setActiveScrubRow(null); setScrubOverlay(null); }}
                         >
@@ -1111,11 +1147,18 @@ className="fixed z-[100] w-[300px] -translate-x-1/2 bg-card border border-yellow
                         {/* Custom multicolor interactive progress bar */}
                         {(() => {
                             const { first, ath } = scrubOverlay;
-                            const current = first + (ath - first) * (scrubVisual / 100);
-                            const xToAth = current > 0 ? (ath / current) : 1;
+                            const safeFirst = typeof first === "number" && Number.isFinite(first) ? first : 0;
+                            const safeAth = typeof ath === "number" && Number.isFinite(ath) ? ath : 0;
                             const scrubProgress = Math.max(0, Math.min(100, scrubVisual));
-                            const firstMarkerLeft = Math.max(0, Math.min(100, (first / ath) * 100));
-                            
+                            const current = Math.min(
+                                safeAth,
+                                Math.max(safeFirst, (safeAth * scrubProgress) / 100),
+                            );
+                            const xToAth = current > 0 ? safeAth / current : 1;
+                            const firstMarkerLeft = safeAth > 0
+                                ? Math.max(0, Math.min(100, (safeFirst / safeAth) * 100))
+                                : 0;
+
                             const handleTrackClick = (e: React.MouseEvent<HTMLDivElement>) => {
                                 if ((e.target as HTMLElement).classList.contains('scrub-thumb')) return;
                                 const rect = e.currentTarget.getBoundingClientRect();
@@ -1130,57 +1173,57 @@ className="fixed z-[100] w-[300px] -translate-x-1/2 bg-card border border-yellow
                                     clickDelayRef.current = null;
                                 }, 180);
                             };
-                            
+
                             const handleThumbMouseDown = (e: React.MouseEvent) => {
                                 e.stopPropagation();
                                 if (clickDelayRef.current) { clearTimeout(clickDelayRef.current); clickDelayRef.current = null; }
                                 setIsDragging(true);
                                 setJustClicked(false);
-                                
+
                                 const trackRect = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect();
-                                
+
                                 const handleMouseMove = (moveEvent: MouseEvent) => {
                                     const moveX = moveEvent.clientX - trackRect.left;
                                     const percentage = Math.max(0, Math.min(100, (moveX / trackRect.width) * 100));
                                     setScrubValue(percentage);
                                     setScrubVisual(percentage);
                                 };
-                                
+
                                 const handleMouseUp = () => {
                                     setIsDragging(false);
                                     document.removeEventListener('mousemove', handleMouseMove);
                                     document.removeEventListener('mouseup', handleMouseUp);
                                 };
-                                
+
                                 document.addEventListener('mousemove', handleMouseMove);
                                 document.addEventListener('mouseup', handleMouseUp);
                             };
-                            
+
                             return (
                                 <div className="space-y-2">
                                     <div className="flex justify-between items-center text-[10px] text-muted-foreground mb-2">
                                         <span>Projection</span>
                                         <span
-className="font-mono tabular-nums text-sm font-bold text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded ring-1 ring-green-500/30 bg-green-500/10"
+                                            className="font-mono tabular-nums text-sm font-bold text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded ring-1 ring-green-500/30 bg-green-500/10"
                                             style={{ textShadow: '0 0 6px rgba(34,197,94,0.3)' }}
                                         >
                                             {xToAth.toFixed(1)}× to ATH
                                         </span>
                                     </div>
                                     {/* Custom interactive track */}
-                                    <div 
+                                    <div
                                         className="relative h-2 w-full mt-3 rounded-full bg-muted cursor-pointer select-none"
                                         onClick={handleTrackClick}
                                     >
                                         {/* Background muted layer */}
                                         <div className="absolute inset-0 bg-muted/40 rounded-full z-0" />
-                                        
+
                                         {/* Multicolor gradient fill */}
                                         <div
                                             className="absolute h-full rounded-full z-10"
                                             style={{
                                                 width: `${scrubProgress}%`,
-background: 'linear-gradient(to right, rgb(239, 68, 68) 0%, rgb(251, 146, 60) 25%, rgb(250, 204, 21) 50%, rgb(163, 230, 53) 75%, rgb(34, 197, 94) 100%)',
+                                                background: 'linear-gradient(to right, rgb(239, 68, 68) 0%, rgb(251, 146, 60) 25%, rgb(250, 204, 21) 50%, rgb(163, 230, 53) 75%, rgb(34, 197, 94) 100%)',
                                                 transitionProperty: 'width',
                                                 transitionDuration: isDragging ? '40ms' : '280ms',
                                                 transitionTimingFunction: isDragging ? 'linear' : 'cubic-bezier(.22,.61,.36,1)',
@@ -1188,19 +1231,19 @@ background: 'linear-gradient(to right, rgb(239, 68, 68) 0%, rgb(251, 146, 60) 25
                                                 willChange: 'width'
                                             }}
                                         />
-                                        
+
                                         {/* First Called marker */}
                                         <div
                                             className="absolute top-1/2 -translate-y-1/2 w-1 h-4 bg-yellow-400 rounded-full shadow-lg z-20 pointer-events-none"
                                             style={{ left: `${firstMarkerLeft}%`, boxShadow: '0 0 8px rgba(250, 204, 21, 0.7)' }}
                                         />
-                                        
+
                                         {/* ATH marker */}
                                         <div
                                             className="absolute top-1/2 right-0 -translate-y-1/2 w-1 h-4 bg-green-500 rounded-full shadow-lg z-20 pointer-events-none"
                                             style={{ boxShadow: '0 0 8px rgba(34, 197, 94, 0.7)' }}
                                         />
-                                        
+
                                         {/* Draggable thumb */}
                                         <div
                                             className="scrub-thumb absolute w-4 h-4 rounded-full border-2 shadow-lg z-30 cursor-grab active:cursor-grabbing"
@@ -1215,8 +1258,8 @@ background: 'linear-gradient(to right, rgb(239, 68, 68) 0%, rgb(251, 146, 60) 25
                                                 transitionDuration: isDragging ? '100ms, 100ms' : '280ms, 100ms, 100ms',
                                                 transitionTimingFunction: isDragging ? 'ease, ease' : 'cubic-bezier(.22,.61,.36,1), ease, ease',
                                                 transitionDelay: isDragging ? '0ms, 0ms' : `${justClicked ? '120ms' : '0ms'}, 0ms, 0ms`,
-                                                boxShadow: isDragging 
-                                                    ? '0 4px 10px rgba(0,0,0,0.25), 0 0 0 3px rgba(234,179,8,0.35), 0 0 10px rgba(234,179,8,0.4)' 
+                                                boxShadow: isDragging
+                                                    ? '0 4px 10px rgba(0,0,0,0.25), 0 0 0 3px rgba(234,179,8,0.35), 0 0 10px rgba(234,179,8,0.4)'
                                                     : '0 2px 6px rgba(0,0,0,0.2), 0 0 0 2px rgba(234,179,8,0.25), 0 0 6px rgba(234,179,8,0.35)'
                                             }}
                                             onMouseDown={handleThumbMouseDown}
@@ -1227,15 +1270,29 @@ background: 'linear-gradient(to right, rgb(239, 68, 68) 0%, rgb(251, 146, 60) 25
                         })()}
                         {(() => {
                             const { first, ath } = scrubOverlay;
-                        const current = first + (ath - first) * (scrubVisual / 100);
-                        const liftNeeded = current > 0 ? ((ath / current - 1) * 100) : 0;
-                        const fromFirst = first > 0 ? ((current / first - 1) * 100) : 0;
+                            const safeFirst = typeof first === "number" && Number.isFinite(first) ? first : 0;
+                            const safeAth = typeof ath === "number" && Number.isFinite(ath) ? ath : 0;
+                            const scrubProgress = Math.max(0, Math.min(100, scrubVisual));
+                            const current = Math.min(
+                                safeAth,
+                                Math.max(safeFirst, (safeAth * scrubProgress) / 100),
+                            );
+                            const liftNeeded = current > 0 ? ((safeAth / current - 1) * 100) : 0;
+                            const fromFirst = safeFirst > 0 ? ((current / safeFirst - 1) * 100) : 0;
                             return (
                                 <>
                                     <div className="flex justify-between text-[10px] text-muted-foreground">
-                                        <span>First: {formatMcap(first)}</span>
+                                        <span>
+                                            First:{" "}
+                                            <span
+                                                className="interactive-shimmer inline-flex tabular-nums font-semibold pointer-events-none select-text"
+                                                {...shimmerStateFor(safeFirst)}
+                                            >
+                                                {formatMcap(safeFirst)}
+                                            </span>
+                                        </span>
                                         <span>Current: {formatMcap(current)}</span>
-                                        <span>ATH: {formatMcap(ath)}</span>
+                                        <span>ATH: {formatMcap(safeAth)}</span>
                                     </div>
                                     <div className="flex items-center justify-center gap-3 text-[11px]">
                                         <span>Lift needed: <span className="font-semibold text-green-600 dark:text-green-400" style={{ textShadow: '0 0 6px rgba(34,197,94,0.28)' }}>{liftNeeded.toFixed(1)}%</span></span>
