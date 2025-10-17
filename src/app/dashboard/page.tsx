@@ -27,6 +27,7 @@ import { Press_Start_2P } from "next/font/google";
 
 const pressStart = Press_Start_2P({ weight: "400", subsets: ["latin"] });
 
+import { SidebarHoverTrigger } from "@/components/sidebar-hover-trigger";
 import { StatsLive } from "@/components/stats-live";
 import { getDbAndCollections, getMongoClient } from "@/server/db/mongo";
 import { RiBarChartLine, RiDatabaseLine, RiGroupLine, RiUserLine } from "@remixicon/react";
@@ -296,6 +297,7 @@ export default async function Page() {
     return (
         <SidebarProvider>
             <AppSidebar />
+            <SidebarHoverTrigger />
             <SidebarInset className="overflow-hidden px-4 md:px-6 lg:px-8">
                 <header className="flex h-16 shrink-0 items-center gap-2 border-b">
                     <div className="flex flex-1 items-center gap-2 px-3">
