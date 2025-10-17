@@ -472,7 +472,7 @@ header: () => <div className="w-[120px] text-right">First Called</div>,
                                 className={cn(
                                     "tabular-nums font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500/40",
                                     isInteractive
-                                        ? "interactive-shimmer cursor-pointer text-yellow-600 hover:text-yellow-500 dark:text-yellow-300 dark:hover:text-yellow-200"
+                                        ? "interactive-shimmer cursor-pointer"
                                         : "cursor-not-allowed text-muted-foreground"
                                 )}
                                 onClick={(e) => handleActivate(e)}
