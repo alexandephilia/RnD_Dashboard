@@ -732,17 +732,17 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                             ? row.original.username
                             : "—";
                     return (
-                        <div className="flex w-[180px] flex-col items-center gap-1">
+                        <div className="flex w-[180px] flex-col gap-1">
                             <span className="font-medium">{firstName}</span>
                             {username !== "—" ? (
                                 <Badge
                                     variant="secondary"
-                                    className="w-fit text-[10px] font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                                    className="w-fit text-[10px] font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 ml-1"
                                 >
                                     @{username}
                                 </Badge>
                             ) : (
-                                <span className="text-xs text-muted-foreground">@{username}</span>
+                                <span className="text-xs text-muted-foreground ml-1">@{username}</span>
                             )}
                         </div>
                     );
