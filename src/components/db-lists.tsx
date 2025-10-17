@@ -1111,10 +1111,17 @@ className="fixed z-[100] w-[300px] -translate-x-1/2 bg-card border border-yellow
                         {/* Custom multicolor interactive progress bar */}
                         {(() => {
                             const { first, ath } = scrubOverlay;
-                            const current = first + (ath - first) * (scrubVisual / 100);
-                            const xToAth = current > 0 ? (ath / current) : 1;
+                            const safeFirst = typeof first === "number" && Number.isFinite(first) ? first : 0;
+                            const safeAth = typeof ath === "number" && Number.isFinite(ath) ? ath : 0;
                             const scrubProgress = Math.max(0, Math.min(100, scrubVisual));
-                            const firstMarkerLeft = Math.max(0, Math.min(100, (first / ath) * 100));
+                            const current = Math.min(
+                                safeAth,
+                                Math.max(safeFirst, (safeAth * scrubProgress) / 100),
+                            );
+                            const xToAth = current > 0 ? safeAth / current : 1;
+                            const firstMarkerLeft = safeAth > 0
+                                ? Math.max(0, Math.min(100, (safeFirst / safeAth) * 100))
+                                : 0;
                             
                             const handleTrackClick = (e: React.MouseEvent<HTMLDivElement>) => {
                                 if ((e.target as HTMLElement).classList.contains('scrub-thumb')) return;
@@ -1227,15 +1234,21 @@ background: 'linear-gradient(to right, rgb(239, 68, 68) 0%, rgb(251, 146, 60) 25
                         })()}
                         {(() => {
                             const { first, ath } = scrubOverlay;
-                        const current = first + (ath - first) * (scrubVisual / 100);
-                        const liftNeeded = current > 0 ? ((ath / current - 1) * 100) : 0;
-                        const fromFirst = first > 0 ? ((current / first - 1) * 100) : 0;
+                            const safeFirst = typeof first === "number" && Number.isFinite(first) ? first : 0;
+                            const safeAth = typeof ath === "number" && Number.isFinite(ath) ? ath : 0;
+                            const scrubProgress = Math.max(0, Math.min(100, scrubVisual));
+                            const current = Math.min(
+                                safeAth,
+                                Math.max(safeFirst, (safeAth * scrubProgress) / 100),
+                            );
+                            const liftNeeded = current > 0 ? ((safeAth / current - 1) * 100) : 0;
+                            const fromFirst = safeFirst > 0 ? ((current / safeFirst - 1) * 100) : 0;
                             return (
                                 <>
                                     <div className="flex justify-between text-[10px] text-muted-foreground">
-                                        <span>First: {formatMcap(first)}</span>
+                                        <span>First: {formatMcap(safeFirst)}</span>
                                         <span>Current: {formatMcap(current)}</span>
-                                        <span>ATH: {formatMcap(ath)}</span>
+                                        <span>ATH: {formatMcap(safeAth)}</span>
                                     </div>
                                     <div className="flex items-center justify-center gap-3 text-[11px]">
                                         <span>Lift needed: <span className="font-semibold text-green-600 dark:text-green-400" style={{ textShadow: '0 0 6px rgba(34,197,94,0.28)' }}>{liftNeeded.toFixed(1)}%</span></span>
