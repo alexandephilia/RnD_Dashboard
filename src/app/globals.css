@@ -209,75 +209,34 @@
     display: inline-flex;
     align-items: center;
     justify-content: flex-end;
-    background: linear-gradient(90deg,
-            #6a4e08 0%,
+    background: linear-gradient(50deg,
+            #5a4108 0%,
+            #6a4e08 15%,
+            #8a6408 30%,
+            #c9a020 45%,
             #ffd700 50%,
-            #7f5d08 80%);
+            #c9a020 55%,
+            #8a6408 70%,
+            #6a4e08 85%,
+            #5a4108 100%);
     background-size: 200% 200%;
     background-clip: text;
     -webkit-background-clip: text;
     color: transparent;
     -webkit-text-fill-color: transparent;
-    animation: shimmer-text 2.5s ease-in-out infinite;
+    animation: shimmer-text 3.8s ease-in-out infinite;
 }
 
-.dark .interactive-shimmer {
-    background: linear-gradient(90deg,
-            #6a4e08 0%,
-            #ffd700 50%,
-            #7f5d08 80%);
-    background-size: 200% 200%;
-    background-clip: text;
-    -webkit-background-clip: text;
-    color: transparent;
-    -webkit-text-fill-color: transparent;
-    animation: shimmer-text 2.5s ease-in-out infinite;
+.interactive-shimmer[data-zero="true"] {
+    animation-duration: 3.8s;
 }
 
-.interactive-shimmer[data-zero="true"],
-.dark .interactive-shimmer[data-zero="true"] {
-    animation-duration: 3.1s;
-}
-
-.interactive-shimmer[data-negative="true"],
-.dark .interactive-shimmer[data-negative="true"] {
-    animation-duration: 2.3s;
-}
-
-.interactive-shimmer:hover,
-.interactive-shimmer[data-active="true"],
-.interactive-shimmer:focus-visible {
-    animation-duration: 1.4s;
-}
-
-.dark .interactive-shimmer:hover,
-.dark .interactive-shimmer[data-active="true"],
-.dark .interactive-shimmer:focus-visible {
-    animation-duration: 1.4s;
-}
-
-.interactive-shimmer[data-zero="true"]:hover,
-.interactive-shimmer[data-zero="true"][data-active="true"],
-.interactive-shimmer[data-zero="true"]:focus-visible,
-.dark .interactive-shimmer[data-zero="true"]:hover,
-.dark .interactive-shimmer[data-zero="true"][data-active="true"],
-.dark .interactive-shimmer[data-zero="true"]:focus-visible {
-    animation-duration: 1.6s;
-}
-
-.interactive-shimmer[data-negative="true"]:hover,
-.interactive-shimmer[data-negative="true"][data-active="true"],
-.interactive-shimmer[data-negative="true"]:focus-visible,
-.dark .interactive-shimmer[data-negative="true"]:hover,
-.dark .interactive-shimmer[data-negative="true"][data-active="true"],
-.dark .interactive-shimmer[data-negative="true"]:focus-visible {
-    animation-duration: 1.3s;
+.interactive-shimmer[data-negative="true"] {
+    animation-duration: 3.8s;
 }
 
 @media (prefers-reduced-motion: reduce) {
-
-    .interactive-shimmer,
-    .dark .interactive-shimmer {
+    .interactive-shimmer {
         animation: none;
         background-position: center;
     }
@@ -285,13 +244,11 @@
 
 /* Fallback for browsers that don't support background-clip: text */
 @supports not ((-webkit-background-clip: text) or (background-clip: text)) {
-
-    .interactive-shimmer,
-    .dark .interactive-shimmer {
+    .interactive-shimmer {
         background: none !important;
         color: #ffd700 !important;
         -webkit-text-fill-color: #ffd700 !important;
-        animation: shimmer-glow 1.8s ease-in-out infinite !important;
+        animation: shimmer-glow 3.8s ease-in-out infinite !important;
         text-shadow: 0 0 10px rgba(255, 215, 0, 0.6) !important;
     }
 
