@@ -208,15 +208,11 @@
   justify-content: flex-end;
   background: linear-gradient(
     110deg,
-    #92400e 0%,
-    #b45309 20%,
-    #d97706 35%,
-    #fbbf24 48%,
-    #fde047 50%,
-    #fbbf24 52%,
-    #d97706 65%,
-    #b45309 80%,
-    #92400e 100%
+    #1f2933 0%,
+    #facc15 30%,
+    #ffffff 50%,
+    #facc15 70%,
+    #1f2933 100%
   );
   background-size: 200% 100%;
   background-clip: text;
@@ -224,22 +220,17 @@
   color: transparent;
   -webkit-text-fill-color: transparent;
   animation: shimmer-text 2.8s ease-in-out infinite;
-  text-shadow: 0 0 8px rgba(251, 191, 36, 0.3);
-  transition: filter 0.3s ease, text-shadow 0.3s ease, animation-duration 0.3s ease;
+  transition: animation-duration 0.3s ease;
 }
 
 .dark .interactive-shimmer {
   background: linear-gradient(
     110deg,
-    #422006 0%,
-    #713f12 20%,
-    #a16207 35%,
-    #facc15 48%,
-    #fde047 50%,
-    #facc15 52%,
-    #a16207 65%,
-    #713f12 80%,
-    #422006 100%
+    #0f172a 0%,
+    #facc15 30%,
+    #ffffff 50%,
+    #facc15 70%,
+    #0f172a 100%
   );
   background-size: 200% 100%;
   background-clip: text;
@@ -247,32 +238,28 @@
   color: transparent;
   -webkit-text-fill-color: transparent;
   animation: shimmer-text 2.8s ease-in-out infinite;
-  text-shadow: 0 0 10px rgba(250, 204, 21, 0.35);
 }
 
 .interactive-shimmer[data-zero="true"],
 .dark .interactive-shimmer[data-zero="true"] {
   animation-duration: 3.1s;
-  text-shadow: 0 0 12px rgba(251, 191, 36, 0.38);
 }
 
 .interactive-shimmer[data-negative="true"],
 .dark .interactive-shimmer[data-negative="true"] {
   animation-duration: 2.3s;
-  text-shadow: 0 0 14px rgba(234, 179, 8, 0.45);
 }
 
 .interactive-shimmer:hover,
 .interactive-shimmer[data-active="true"],
 .interactive-shimmer:focus-visible {
   animation-duration: 1.4s;
-  text-shadow: 0 0 14px rgba(251, 191, 36, 0.5);
 }
 
 .dark .interactive-shimmer:hover,
 .dark .interactive-shimmer[data-active="true"],
 .dark .interactive-shimmer:focus-visible {
-  text-shadow: 0 0 16px rgba(250, 204, 21, 0.5);
+  animation-duration: 1.4s;
 }
 
 .interactive-shimmer[data-zero="true"]:hover,
@@ -282,7 +269,6 @@
 .dark .interactive-shimmer[data-zero="true"][data-active="true"],
 .dark .interactive-shimmer[data-zero="true"]:focus-visible {
   animation-duration: 1.6s;
-  text-shadow: 0 0 16px rgba(251, 191, 36, 0.5);
 }
 
 .interactive-shimmer[data-negative="true"]:hover,
@@ -292,19 +278,6 @@
 .dark .interactive-shimmer[data-negative="true"][data-active="true"],
 .dark .interactive-shimmer[data-negative="true"]:focus-visible {
   animation-duration: 1.3s;
-  text-shadow: 0 0 18px rgba(234, 179, 8, 0.55);
-}
-
-.interactive-shimmer:hover,
-.interactive-shimmer[data-active="true"],
-.interactive-shimmer:focus-visible {
-  filter: drop-shadow(0 0 10px rgba(251, 191, 36, 0.45));
-}
-
-.dark .interactive-shimmer:hover,
-.dark .interactive-shimmer[data-active="true"],
-.dark .interactive-shimmer:focus-visible {
-  filter: drop-shadow(0 0 12px rgba(250, 204, 21, 0.5));
 }
 
 @media (prefers-reduced-motion: reduce) {
