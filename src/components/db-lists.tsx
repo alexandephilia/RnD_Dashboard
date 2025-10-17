@@ -194,9 +194,9 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
         if (firstValue === null || athValue === null || athValue <= 0) return;
 
         const boundedCurrent = (() => {
-            if (lastValue === null) return firstValue;
-            if (firstValue > athValue) return firstValue;
-            return Math.max(firstValue, Math.min(athValue, lastValue));
+            if (athValue <= 0) return firstValue;
+            const source = lastValue ?? firstValue;
+            return Math.max(0, Math.min(athValue, source));
         })();
 
         const nextPercent = Math.max(
@@ -556,8 +556,8 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                         const base = lastValue ?? firstValue;
                         if (base === null) return null;
                         if (athValue <= 0) return firstValue;
-                        if (firstValue > athValue) return firstValue;
-                        return Math.max(firstValue, Math.min(athValue, base));
+                        const clamped = Math.max(0, Math.min(athValue, base));
+                        return clamped;
                     })();
                     const initialPercentage = sliderTarget !== null && athValue
                         ? Math.max(0, Math.min(100, (sliderTarget / athValue) * 100))
@@ -1317,9 +1317,9 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                             const safeFirst = typeof first === "number" && Number.isFinite(first) ? first : 0;
                             const safeAth = typeof ath === "number" && Number.isFinite(ath) ? ath : 0;
                             const scrubProgress = Math.max(0, Math.min(100, scrubVisual));
-                            const current = Math.min(
-                                safeAth,
-                                Math.max(safeFirst, (safeAth * scrubProgress) / 100),
+                            const current = Math.max(
+                                0,
+                                Math.min(safeAth, (safeAth * scrubProgress) / 100),
                             );
                             const xToAth = current > 0 ? safeAth / current : 1;
                             const firstMarkerLeft = safeAth > 0
@@ -1453,7 +1453,8 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                                         <span className="inline-flex items-center gap-1">
                                             <span>First:</span>
                                             <span
-                                                className="inline-block h-2 w-2 rounded-full border border-white/60 bg-white shadow-[0_0_4px_rgba(255,255,255,0.6)]"
+                                                className="inline-block rounded-full border border-white/70 bg-white"
+                                                style={{ width: '10px', height: '10px', boxShadow: '0 0 8px rgba(255,255,255,0.55)' }}
                                                 aria-hidden="true"
                                             />
                                             <span
@@ -1465,7 +1466,8 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                                         <span className="inline-flex items-center gap-1">
                                             <span>Current:</span>
                                             <span
-                                                className="inline-block h-2 w-2 rounded-full bg-yellow-400 shadow-[0_0_4px_rgba(250,204,21,0.6)]"
+                                                className="inline-block rounded-full border border-yellow-200/70 bg-yellow-300"
+                                                style={{ width: '10px', height: '10px', boxShadow: '0 0 8px rgba(250,204,21,0.55)' }}
                                                 aria-hidden="true"
                                             />
                                             <span>{formatMcap(current)}</span>
@@ -1473,7 +1475,8 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                                         <span className="inline-flex items-center gap-1">
                                             <span>ATH:</span>
                                             <span
-                                                className="inline-block h-2 w-2 rounded-full bg-green-500 shadow-[0_0_4px_rgba(34,197,94,0.55)]"
+                                                className="inline-block rounded-full border border-green-200/70 bg-green-400"
+                                                style={{ width: '10px', height: '10px', boxShadow: '0 0 8px rgba(34,197,94,0.55)' }}
                                                 aria-hidden="true"
                                             />
                                             <span>{formatMcap(safeAth)}</span>
