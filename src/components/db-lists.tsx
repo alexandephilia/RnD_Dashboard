@@ -67,16 +67,29 @@ const formatMcap = (value: unknown): string => {
     const num = toNumber(value);
     if (num === null) return "—";
     if (num >= 1_000_000_000) {
-        return `$${(num / 1_000_000_000).toFixed(2)}B`;
+        return `${(num / 1_000_000_000).toFixed(2)}B`;
     }
     if (num >= 1_000_000) {
-        return `$${(num / 1_000_000).toFixed(2)}M`;
+        return `${(num / 1_000_000).toFixed(2)}M`;
     }
     if (num >= 1_000) {
-        return `$${(num / 1_000).toFixed(2)}K`;
+        return `${(num / 1_000).toFixed(2)}K`;
     }
-    return `$${num.toFixed(2)}`;
+    return `${num.toFixed(2)}`;
 };
+
+const isFiniteNumber = (value: unknown): value is number =>
+    typeof value === "number" && Number.isFinite(value);
+
+type ShimmerStateAttrs = {
+    "data-negative"?: "true";
+    "data-zero"?: "true";
+};
+
+const shimmerStateFor = (value: number | null): ShimmerStateAttrs => ({
+    "data-zero": value === 0 ? "true" : undefined,
+    "data-negative": value !== null && value < 0 ? "true" : undefined,
+});
 
 const toMillis = (value: unknown): number => {
     if (typeof value === "number") return value;
@@ -435,53 +448,68 @@ header: () => <div className="w-[160px] text-center">First Poster</div>,
                 accessorKey: "first_mcap",
 header: () => <div className="w-[120px] text-right">First Called</div>,
                 cell: ({ row }) => {
-                    const firstMcap = toNumber(row.original.first_mcap);
-                    const athMcap = toNumber(row.original.ath_mcap);
+                    const rawFirst = toNumber(row.original.first_mcap);
+                    const rawAth = toNumber(row.original.ath_mcap);
+                    const firstValue = isFiniteNumber(rawFirst) ? rawFirst : null;
+                    const athValue = isFiniteNumber(rawAth) ? rawAth : null;
+                    const canProject = firstValue !== null && athValue !== null && athValue > 0;
                     const rowId = `${row.original.token_address}-${row.original.group_id}`;
                     const isActive = activeScrubRow === rowId;
-                    const isInteractive = Boolean(firstMcap && athMcap);
+                    const shimmerAttrs = shimmerStateFor(firstValue);
 
                     const openOverlay = (target: HTMLElement) => {
+                        if (!canProject || firstValue === null || athValue === null) return;
                         const rect = target.getBoundingClientRect();
                         const left = rect.left + window.scrollX + rect.width / 2;
                         const top = rect.bottom + window.scrollY + 8;
-                        setScrubOverlay({ rowId, first: firstMcap!, ath: athMcap!, left, top });
+                        setScrubOverlay({ rowId, first: firstValue, ath: athValue, left, top });
                     };
 
                     const handleActivate = (e?: ReactMouseEvent<HTMLElement>) => {
-                        if (isInteractive && firstMcap !== null && athMcap !== null) {
-                            setActiveScrubRow(rowId);
-                            const firstPct = Math.min(100, Math.max(0, (firstMcap / athMcap) * 100));
-                            const init = Number.isFinite(firstPct) ? firstPct : 0;
-                            setScrubValue(init);
-                            setScrubVisual(init);
-                            if (e) openOverlay(e.currentTarget as HTMLElement);
-                        }
+                        if (!canProject || firstValue === null || athValue === null) return;
+                        setActiveScrubRow(rowId);
+                        const firstPct = Math.min(100, Math.max(0, (firstValue / athValue) * 100));
+                        const init = Number.isFinite(firstPct) ? firstPct : 0;
+                        setScrubValue(init);
+                        setScrubVisual(init);
+                        if (e) openOverlay(e.currentTarget as HTMLElement);
                     };
 
-                    const handleDeactivate = () => {
-                        setActiveScrubRow(null);
-                        setScrubValue(0);
-                        setScrubOverlay(null);
-                    };
+                    if (firstValue === null) {
+                        return (
+                            <div className="relative w-[120px] text-right">
+                                <span className="block tabular-nums font-medium text-muted-foreground">—</span>
+                            </div>
+                        );
+                    }
+
+                    const formatted = formatMcap(firstValue);
 
                     return (
                         <div className="relative w-[120px] text-right">
-                            <button
-                                type="button"
-                                className={cn(
-                                    "tabular-nums font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500/40",
-                                    isInteractive
-                                        ? "interactive-shimmer cursor-pointer"
-                                        : "cursor-not-allowed text-muted-foreground"
-                                )}
-                                onClick={(e) => handleActivate(e)}
-                                onMouseEnter={(e) => handleActivate(e)}
-                                disabled={!isInteractive}
-                                data-active={isActive ? "true" : undefined}
-                            >
-                                {formatMcap(row.original.first_mcap)}
-                            </button>
+                            {canProject ? (
+                                <button
+                                    type="button"
+                                    className="inline-flex w-full justify-end focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500/40"
+                                    onClick={(e) => handleActivate(e)}
+                                    onMouseEnter={(e) => handleActivate(e)}
+                                    data-active={isActive ? "true" : undefined}
+                                >
+                                    <span
+                                        className="interactive-shimmer block text-right tabular-nums font-medium"
+                                        {...shimmerAttrs}
+                                    >
+                                        {formatted}
+                                    </span>
+                                </button>
+                            ) : (
+                                <span
+                                    className="interactive-shimmer block tabular-nums font-medium pointer-events-none select-text"
+                                    {...shimmerAttrs}
+                                >
+                                    {formatted}
+                                </span>
+                            )}
                         </div>
                     );
                 },
@@ -1254,7 +1282,15 @@ background: 'linear-gradient(to right, rgb(239, 68, 68) 0%, rgb(251, 146, 60) 25
                             return (
                                 <>
                                     <div className="flex justify-between text-[10px] text-muted-foreground">
-                                        <span>First: {formatMcap(safeFirst)}</span>
+                                        <span>
+                                            First:{" "}
+                                            <span
+                                                className="interactive-shimmer inline-flex tabular-nums font-semibold pointer-events-none select-text"
+                                                {...shimmerStateFor(safeFirst)}
+                                            >
+                                                {formatMcap(safeFirst)}
+                                            </span>
+                                        </span>
                                         <span>Current: {formatMcap(current)}</span>
                                         <span>ATH: {formatMcap(safeAth)}</span>
                                     </div>
