@@ -218,6 +218,7 @@
   isolation: isolate;
   text-shadow: 0 0 6px rgba(217, 119, 6, 0.25);
   transition: color 0.3s ease, text-shadow 0.3s ease;
+  overflow: hidden;
 }
 
 .dark .interactive-shimmer {
@@ -227,7 +228,7 @@
 .interactive-shimmer::after {
   content: "";
   position: absolute;
-  inset: -0.1em 0;
+  inset: 0;
   pointer-events: none;
   background: linear-gradient(
     120deg,
