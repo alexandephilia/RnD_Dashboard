@@ -81,15 +81,7 @@ const formatMcap = (value: unknown): string => {
 const isFiniteNumber = (value: unknown): value is number =>
     typeof value === "number" && Number.isFinite(value);
 
-type ShimmerStateAttrs = {
-    "data-negative"?: "true";
-    "data-zero"?: "true";
-};
-
-const shimmerStateFor = (value: number | null): ShimmerStateAttrs => ({
-    "data-zero": value === 0 ? "true" : undefined,
-    "data-negative": value !== null && value < 0 ? "true" : undefined,
-});
+// Removed shimmerStateFor - no longer needed since we don't use data attributes for animation control
 
 const toMillis = (value: unknown): number => {
     if (typeof value === "number") return value;
@@ -465,7 +457,6 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                     const canProject = firstValue !== null && athValue !== null && athValue > 0;
                     const rowId = `${row.original.token_address}-${row.original.group_id}`;
                     const isActive = activeScrubRow === rowId;
-                    const shimmerAttrs = shimmerStateFor(firstValue);
 
                     const openOverlay = (target: HTMLElement) => {
                         if (!canProject || firstValue === null || athValue === null) return;
@@ -534,7 +525,6 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                                 >
                                     <span
                                         className="interactive-shimmer block text-right tabular-nums font-medium"
-                                        {...shimmerAttrs}
                                     >
                                         {formatted}
                                     </span>
@@ -542,7 +532,6 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                             ) : (
                                 <span
                                     className="interactive-shimmer block tabular-nums font-medium pointer-events-none select-text"
-                                    {...shimmerAttrs}
                                 >
                                     {formatted}
                                 </span>
@@ -1328,7 +1317,6 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                                             First:{" "}
                                             <span
                                                 className="interactive-shimmer inline-flex tabular-nums font-semibold pointer-events-none select-text"
-                                                {...shimmerStateFor(safeFirst)}
                                             >
                                                 {formatMcap(safeFirst)}
                                             </span>
