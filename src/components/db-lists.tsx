@@ -732,9 +732,18 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                             ? row.original.username
                             : "—";
                     return (
-                        <div className="flex w-[180px] flex-col">
+                        <div className="flex w-[180px] flex-col gap-1">
                             <span className="font-medium">{firstName}</span>
-                            <span className="text-xs text-muted-foreground">@{username}</span>
+                            {username !== "—" ? (
+                                <Badge
+                                    variant="secondary"
+                                    className="w-fit text-[10px] font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                                >
+                                    @{username}
+                                </Badge>
+                            ) : (
+                                <span className="text-xs text-muted-foreground">@{username}</span>
+                            )}
                         </div>
                     );
                 },
@@ -745,11 +754,16 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                 header: () => <div className="w-[140px] text-left">User ID</div>,
                 cell: ({ row }) => (
                     <div className="w-[140px] text-left">
-                        <span className="font-mono text-xs">
-                            {typeof row.original.user_id === "string"
-                                ? row.original.user_id
-                                : "—"}
-                        </span>
+                        {typeof row.original.user_id === "string" && row.original.user_id !== "—" ? (
+                            <Badge
+                                variant="secondary"
+                                className="w-fit font-mono text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                            >
+                                {row.original.user_id}
+                            </Badge>
+                        ) : (
+                            <span className="font-mono text-xs text-muted-foreground">—</span>
+                        )}
                     </div>
                 ),
             },
