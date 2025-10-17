@@ -281,7 +281,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
             if (!triggerButton) return;
 
             const rect = triggerButton.getBoundingClientRect();
-            const overlayWidth = 300;
+            const overlayWidth = 340;
             const overlayHeight = 160;
             const padding = 16;
             const spacingBelow = 8;
@@ -594,7 +594,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                     const openOverlay = (target: HTMLElement) => {
                         if (!canProject || firstValue === null || athValue === null) return;
                         const rect = target.getBoundingClientRect();
-                        const overlayWidth = 300; // matches the fixed width in the overlay div
+                        const overlayWidth = 340; // matches the fixed width in the overlay div
                         const overlayHeight = 160; // approximate height of the overlay (adjust this to control top positioning)
                         const padding = 16; // padding from viewport edges
                         const spacingBelow = 8; // spacing when overlay appears below button
@@ -1306,7 +1306,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
             {scrubOverlay && (
                 <div
                     ref={overlayRef}
-                    className="fixed z-[100] w-[300px] max-w-[calc(100vw-2rem)] -translate-x-1/2 bg-card border border-yellow-500/20 border-dashed rounded-lg p-3 shadow-xl"
+                    className="fixed z-[100] w-[340px] max-w-[calc(100vw-2rem)] -translate-x-1/2 bg-card border border-yellow-500/20 border-dashed rounded-lg p-3 shadow-xl"
                     style={{
                         left: `${scrubOverlay.left}px`,
                         top: `${scrubOverlay.top}px`,
