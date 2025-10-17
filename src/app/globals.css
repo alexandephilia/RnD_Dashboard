@@ -192,21 +192,12 @@
   transform: scale(0.95);
 }
 
-@keyframes interactive-shimmer-sweep {
+@keyframes shimmer-text {
   0% {
-    transform: translateX(-120%) skewX(-12deg);
-    opacity: 0;
-  }
-  30% {
-    opacity: 0.75;
-  }
-  60% {
-    transform: translateX(120%) skewX(-12deg);
-    opacity: 0.75;
+    background-position: -200% center;
   }
   100% {
-    transform: translateX(150%) skewX(-12deg);
-    opacity: 0;
+    background-position: 200% center;
   }
 }
 
@@ -215,56 +206,104 @@
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
-  isolation: isolate;
+  background: linear-gradient(
+    110deg,
+    #ca8a04 0%,
+    #ca8a04 30%,
+    #fbbf24 45%,
+    #fde047 50%,
+    #fbbf24 55%,
+    #ca8a04 70%,
+    #ca8a04 100%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer-text 2.6s ease-in-out infinite;
   text-shadow: 0 0 6px rgba(217, 119, 6, 0.25);
-  transition: color 0.3s ease, text-shadow 0.3s ease;
-  overflow: hidden;
+  transition: filter 0.3s ease, text-shadow 0.3s ease, animation-duration 0.3s ease;
 }
 
 .dark .interactive-shimmer {
+  background: linear-gradient(
+    110deg,
+    #facc15 0%,
+    #facc15 30%,
+    #fef08a 45%,
+    #fefce8 50%,
+    #fef08a 55%,
+    #facc15 70%,
+    #facc15 100%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer-text 2.6s ease-in-out infinite;
   text-shadow: 0 0 8px rgba(250, 204, 21, 0.25);
 }
 
-.interactive-shimmer::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(
-    120deg,
-    transparent 10%,
-    rgba(253, 224, 71, 0.15) 35%,
-    rgba(253, 224, 71, 0.55) 50%,
-    rgba(253, 224, 71, 0.15) 65%,
-    transparent 90%
-  );
-  transform: translateX(-120%) skewX(-12deg);
-  animation: interactive-shimmer-sweep 2.6s ease-in-out infinite;
-  opacity: 0.75;
-}
-
-.dark .interactive-shimmer::after {
-  background: linear-gradient(
-    120deg,
-    transparent 10%,
-    rgba(250, 204, 21, 0.2) 35%,
-    rgba(250, 204, 21, 0.65) 50%,
-    rgba(250, 204, 21, 0.2) 65%,
-    transparent 90%
-  );
-}
-
-.interactive-shimmer:hover::after,
-.interactive-shimmer[data-active="true"]::after,
-.interactive-shimmer:focus-visible::after {
+.interactive-shimmer:hover,
+.interactive-shimmer[data-active="true"],
+.interactive-shimmer:focus-visible {
   animation-duration: 1.4s;
-  opacity: 0.9;
-}
-
-.interactive-shimmer:hover {
   text-shadow: 0 0 12px rgba(217, 119, 6, 0.45);
 }
 
-.dark .interactive-shimmer:hover {
+.dark .interactive-shimmer:hover,
+.dark .interactive-shimmer[data-active="true"],
+.dark .interactive-shimmer:focus-visible {
   text-shadow: 0 0 14px rgba(250, 204, 21, 0.45);
+}
+
+.interactive-shimmer:hover,
+.interactive-shimmer[data-active="true"],
+.interactive-shimmer:focus-visible {
+  filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.4));
+}
+
+.dark .interactive-shimmer:hover,
+.dark .interactive-shimmer[data-active="true"],
+.dark .interactive-shimmer:focus-visible {
+  filter: drop-shadow(0 0 10px rgba(250, 204, 21, 0.5));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .interactive-shimmer,
+  .dark .interactive-shimmer {
+    animation: none;
+    background-position: center;
+  }
+}
+
+@supports not ((-webkit-background-clip: text) or (background-clip: text)) {
+  .interactive-shimmer,
+  .dark .interactive-shimmer {
+    background: none;
+    color: #ca8a04;
+    -webkit-text-fill-color: initial;
+    filter: none;
+    text-shadow: none;
+  }
+
+  .dark .interactive-shimmer,
+  .dark .interactive-shimmer:hover,
+  .dark .interactive-shimmer[data-active="true"],
+  .dark .interactive-shimmer:focus-visible {
+    color: #facc15;
+  }
+
+  .interactive-shimmer:hover,
+  .interactive-shimmer[data-active="true"],
+  .interactive-shimmer:focus-visible,
+  .dark .interactive-shimmer:hover,
+  .dark .interactive-shimmer[data-active="true"],
+  .dark .interactive-shimmer:focus-visible {
+    animation: none;
+    filter: none;
+    text-shadow: none;
+  }
 }
