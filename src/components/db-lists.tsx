@@ -551,16 +551,14 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                     const canProject = firstValue !== null && athValue !== null && athValue > 0;
                     const rowId = `${row.original.token_address}-${row.original.group_id}`;
                     const isActive = activeScrubRow === rowId;
-                    const sliderTarget = (() => {
+                    const liveValue = (() => {
                         if (!canProject || firstValue === null || athValue === null) return null;
                         const base = lastValue ?? firstValue;
                         if (base === null) return null;
-                        if (athValue <= 0) return firstValue;
-                        const clamped = Math.max(0, Math.min(athValue, base));
-                        return clamped;
+                        return Math.max(0, Math.min(athValue, base));
                     })();
-                    const initialPercentage = sliderTarget !== null && athValue
-                        ? Math.max(0, Math.min(100, (sliderTarget / athValue) * 100))
+                    const initialPercentage = liveValue !== null && athValue
+                        ? Math.max(0, Math.min(100, (liveValue / athValue) * 100))
                         : 0;
 
                     const openOverlay = (target: HTMLElement) => {
@@ -595,7 +593,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                             top = rect.top - overlayHeight - spacingAbove;
                         }
 
-                        const currentValue = sliderTarget ?? firstValue;
+                        const currentValue = liveValue ?? firstValue;
                         setScrubOverlay({
                             rowId,
                             first: firstValue,
@@ -613,7 +611,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                         setScrubVisual(init);
                         setScrubOverlay(prev => {
                             if (!prev || prev.rowId !== rowId) return prev;
-                            const currentValue = sliderTarget ?? firstValue;
+                            const currentValue = liveValue ?? firstValue;
                             return {
                                 ...prev,
                                 first: firstValue,
@@ -1313,17 +1311,23 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                     <div className="space-y-4">
                         {/* Custom multicolor interactive progress bar */}
                         {(() => {
-                            const { first, ath } = scrubOverlay;
+                            const { first, ath, current: liveCurrent } = scrubOverlay;
                             const safeFirst = typeof first === "number" && Number.isFinite(first) ? first : 0;
                             const safeAth = typeof ath === "number" && Number.isFinite(ath) ? ath : 0;
+                            const safeLiveCurrent = typeof liveCurrent === "number" && Number.isFinite(liveCurrent)
+                                ? liveCurrent
+                                : safeFirst;
                             const scrubProgress = Math.max(0, Math.min(100, scrubVisual));
-                            const current = Math.max(
+                            const projected = Math.max(
                                 0,
                                 Math.min(safeAth, (safeAth * scrubProgress) / 100),
                             );
-                            const xToAth = current > 0 ? safeAth / current : 1;
+                            const xToAth = projected > 0 ? safeAth / projected : 1;
                             const firstMarkerLeft = safeAth > 0
                                 ? Math.max(0, Math.min(100, (safeFirst / safeAth) * 100))
+                                : 0;
+                            const liveMarkerLeft = safeAth > 0
+                                ? Math.max(0, Math.min(100, (safeLiveCurrent / safeAth) * 100))
                                 : 0;
 
                             const handleTrackClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -1406,6 +1410,17 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                                             }}
                                         />
 
+                                        {/* Live current marker */}
+                                        <div
+                                            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-2.5 w-2.5 rounded-full border border-yellow-200/70 bg-yellow-300 shadow-lg z-25 pointer-events-none"
+                                            style={{
+                                                left: `${liveMarkerLeft}%`,
+                                                boxShadow: '0 0 8px rgba(250,204,21,0.55)',
+                                                opacity: Math.abs(liveMarkerLeft - scrubProgress) < 0.5 ? 0 : 1,
+                                                transition: 'opacity 150ms ease',
+                                            }}
+                                        />
+
                                         {/* ATH marker */}
                                         <div
                                             className="absolute top-1/2 right-0 -translate-y-1/2 w-1 h-4 bg-green-500 rounded-full shadow-lg z-20 pointer-events-none"
@@ -1437,16 +1452,19 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                             );
                         })()}
                         {(() => {
-                            const { first, ath } = scrubOverlay;
+                            const { first, ath, current: liveCurrent } = scrubOverlay;
                             const safeFirst = typeof first === "number" && Number.isFinite(first) ? first : 0;
                             const safeAth = typeof ath === "number" && Number.isFinite(ath) ? ath : 0;
+                            const safeLiveCurrent = typeof liveCurrent === "number" && Number.isFinite(liveCurrent)
+                                ? liveCurrent
+                                : safeFirst;
                             const scrubProgress = Math.max(0, Math.min(100, scrubVisual));
-                            const current = Math.min(
-                                safeAth,
-                                Math.max(safeFirst, (safeAth * scrubProgress) / 100),
+                            const projected = Math.max(
+                                0,
+                                Math.min(safeAth, (safeAth * scrubProgress) / 100),
                             );
-                            const liftNeeded = current > 0 ? ((safeAth / current - 1) * 100) : 0;
-                            const fromFirst = safeFirst > 0 ? ((current / safeFirst - 1) * 100) : 0;
+                            const liftNeeded = projected > 0 ? ((safeAth / projected - 1) * 100) : 0;
+                            const fromFirst = safeFirst > 0 ? ((projected / safeFirst - 1) * 100) : 0;
                             return (
                                 <>
                                     <div className="flex justify-between text-[10px] text-muted-foreground">
@@ -1470,7 +1488,7 @@ export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
                                                 style={{ width: '10px', height: '10px', boxShadow: '0 0 8px rgba(250,204,21,0.55)' }}
                                                 aria-hidden="true"
                                             />
-                                            <span>{formatMcap(current)}</span>
+                                            <span>{formatMcap(safeLiveCurrent)}</span>
                                         </span>
                                         <span className="inline-flex items-center gap-1">
                                             <span>ATH:</span>
