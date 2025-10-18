@@ -1,6 +1,4 @@
 "use client";
-
-import PixelBlast from "@/components/effects/PixelBlast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -86,28 +84,9 @@ function LoginForm() {
     };
 
     return (
-        <div className="relative min-h-svh grid place-items-center p-4">
-            <PixelBlast
-                variant="circle"
-                pixelSize={6}
-                color="#FACC15"
-                patternScale={3}
-                patternDensity={1.2}
-                pixelSizeJitter={0.5}
-                enableRipples
-                rippleSpeed={0.4}
-                rippleThickness={0.12}
-                rippleIntensityScale={1.5}
-                liquid
-                liquidStrength={0.12}
-                liquidRadius={1.2}
-                liquidWobbleSpeed={5}
-                speed={0.6}
-                edgeFade={0.25}
-                transparent
-            />
-            <div className="relative z-10 w-full max-w-[19rem] sm:max-w-[22rem] rounded-2xl border-[3px] border-yellow-500/50 bg-gradient-to-br from-yellow-500/5 to-transparent shadow-2xl shadow-black/10">
-                <Card className="w-full border-0 shadow-none rounded-xl overflow-hidden bg-background/30 backdrop-blur-xl">
+        <div className="relative min-h-svh grid place-items-center p-4 overflow-hidden">
+            <div className="relative z-10 w-full max-w-[19rem] sm:max-w-[22rem] rounded-2xl border-[2px] border-dashed border-yellow-500/25 bg-card/30 shadow-xl shadow-yellow-500/10 backdrop-blur-lg">
+                <Card className="w-full border-none shadow-none rounded-xl overflow-hidden bg-background/55 backdrop-blur-xl">
                     <CardHeader>
                         <CardTitle className={`text-center whitespace-pre-line leading-relaxed ${pressStart.className}`}>
                             <ShuffleText text={"Sign in to\nRnD Dashboard"} />
@@ -125,9 +104,9 @@ function LoginForm() {
                                         placeholder="Retard"
                                         autoComplete="username"
                                         required
-                                        className="ps-14 border border-yellow-500/30 focus-visible:ring-2 focus-visible:ring-yellow-500/40 focus-visible:border-yellow-500/60"
+                                        className="ps-14 border border-dashed border-yellow-500/30 bg-transparent text-foreground focus-visible:ring-2 focus-visible:ring-yellow-500/50 focus-visible:border-yellow-400/70"
                                     />
-                                    <span className="pointer-events-none absolute inset-y-0 start-0 grid w-12 place-items-center text-yellow-600 bg-yellow-500/10 border border-yellow-500/30 border-r-0 rounded-s-md">
+                                    <span className="pointer-events-none absolute inset-y-0 start-0 grid w-12 place-items-center text-yellow-400 bg-transparent border border-dashed border-yellow-500/40 border-r-0 rounded-s-md">
                                         <RiUserLine size={18} aria-hidden="true" />
                                     </span>
                                 </div>
@@ -143,9 +122,9 @@ function LoginForm() {
                                         placeholder="••••••••"
                                         autoComplete="current-password"
                                         required
-                                        className="ps-14 border border-yellow-500/30 focus-visible:ring-2 focus-visible:ring-yellow-500/40 focus-visible:border-yellow-500/60"
+                                        className="ps-14 border border-dashed border-yellow-500/30 bg-transparent text-foreground focus-visible:ring-2 focus-visible:ring-yellow-500/50 focus-visible:border-yellow-400/70"
                                     />
-                                    <span className="pointer-events-none absolute inset-y-0 start-0 grid w-12 place-items-center text-yellow-600 bg-yellow-500/10 border border-yellow-500/30 border-r-0 rounded-s-md">
+                                    <span className="pointer-events-none absolute inset-y-0 start-0 grid w-12 place-items-center text-yellow-400 bg-transparent border border-dashed border-yellow-500/40 border-r-0 rounded-s-md">
                                         <RiLockLine size={18} aria-hidden="true" />
                                     </span>
                                 </div>
@@ -157,8 +136,9 @@ function LoginForm() {
                             )}
                             <div className="flex justify-end">
                                 <Button
+                                    variant="ghost"
                                     type="submit"
-                                    className={`px-6 ${loading ? "cursor-wait" : ""}`}
+                                    className={`px-6 border border-dashed border-yellow-500/60 bg-transparent text-yellow-400 hover:bg-yellow-500/10 hover:text-yellow-300 focus-visible:ring-yellow-400 focus-visible:ring-2 focus-visible:ring-offset-0 ${loading ? "cursor-wait" : ""}`}
                                     disabled={loading}
                                     aria-busy={loading}
                                 >

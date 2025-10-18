@@ -569,8 +569,8 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
         }
         if (mustReinit) {
             if (threeRef.current) {
-                const t = threeRef.current;
-                t.resizeObserver?.disconnect();
+            const t = threeRef.current;
+            t.resizeObserver?.disconnect();
                 cancelAnimationFrame(t.raf!);
                 t.quad?.geometry.dispose();
                 t.material.dispose();
@@ -721,8 +721,11 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
                 const { fx, fy, w, h } = mapToPixels(e);
                 touch.addTouch({ x: fx / w, y: fy / h });
             };
-            renderer.domElement.addEventListener('pointerdown', onPointerDown, { passive: true });
-            renderer.domElement.addEventListener('pointermove', onPointerMove, { passive: true });
+            const pointerOptions = { passive: true } as const;
+            renderer.domElement.addEventListener('pointerdown', onPointerDown, pointerOptions);
+            renderer.domElement.addEventListener('pointermove', onPointerMove, pointerOptions);
+            window.addEventListener('pointerdown', onPointerDown, pointerOptions);
+            window.addEventListener('pointermove', onPointerMove, pointerOptions);
             let raf = 0;
             const animate = () => {
                 if (autoPauseOffscreen && !visibilityRef.current.visible) {
@@ -791,6 +794,10 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
             if (!threeRef.current) return;
             const t = threeRef.current;
             t.resizeObserver?.disconnect();
+            window.removeEventListener('pointerdown', onPointerDown);
+            window.removeEventListener('pointermove', onPointerMove);
+            t.renderer.domElement.removeEventListener('pointerdown', onPointerDown);
+            t.renderer.domElement.removeEventListener('pointermove', onPointerMove);
             cancelAnimationFrame(t.raf!);
             t.quad?.geometry.dispose();
             t.material.dispose();
