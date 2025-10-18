@@ -98,7 +98,7 @@ function LoginForm() {
                             <div className="space-y-1.5">
                                 <Label htmlFor="email">User</Label>
                                 <div className="relative">
-                                    <div className="group relative flex items-center overflow-hidden rounded-lg border border-dashed border-yellow-500/35 backdrop-blur-sm transition-all duration-300 focus-within:border-yellow-400 focus-within:shadow-[0_0_25px_rgba(250,204,21,0.2)]">
+                                    <div className="rounded-t-4xl group relative flex items-center overflow-hidden rounded-lg border border-dashed border-yellow-500/35 backdrop-blur-sm transition-all duration-300 focus-within:border-yellow-400 focus-within:shadow-[0_0_25px_rgba(250,204,21,0.2)]">
                                     <BorderBeam
                                             size={20}
                                             duration={8}
@@ -137,7 +137,7 @@ function LoginForm() {
                             <div className="space-y-1.5">
                                 <Label htmlFor="password">Password</Label>
                                 <div className="relative">
-                                    <div className="group relative flex items-center overflow-hidden rounded-lg border border-dashed border-yellow-600/35 backdrop-blur-sm transition-all duration-300 focus-within:border-yellow-400 focus-within:shadow-[0_0_25px_rgba(250,204,21,0.2)]">
+                                    <div className="rounded-lg rounded-b-4xl group relative flex items-center overflow-hidden rounded-lg border border-dashed border-yellow-600/35 backdrop-blur-sm transition-all duration-300 focus-within:border-yellow-400 focus-within:shadow-[0_0_25px_rgba(250,204,21,0.2)]">
                                         <BorderBeam
                                             size={20}
                                             duration={8}
