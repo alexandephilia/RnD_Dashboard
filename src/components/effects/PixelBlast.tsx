@@ -550,6 +550,10 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
         composer?: EffectComposer;
         touch?: ReturnType<typeof createTouchTexture>;
         liquidEffect?: Effect;
+        pointerHandlers?: {
+            down: (event: PointerEvent) => void;
+            move: (event: PointerEvent) => void;
+        };
     } | null>(null);
     const prevConfigRef = useRef<{ antialias: boolean; liquid: boolean; noiseAmount: number } | null>(null);
     useEffect(() => {
@@ -569,8 +573,14 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
         }
         if (mustReinit) {
             if (threeRef.current) {
-            const t = threeRef.current;
-            t.resizeObserver?.disconnect();
+                const t = threeRef.current;
+                t.resizeObserver?.disconnect();
+                if (t.pointerHandlers) {
+                    window.removeEventListener('pointerdown', t.pointerHandlers.down);
+                    window.removeEventListener('pointermove', t.pointerHandlers.move);
+                    t.renderer.domElement.removeEventListener('pointerdown', t.pointerHandlers.down);
+                    t.renderer.domElement.removeEventListener('pointermove', t.pointerHandlers.move);
+                }
                 cancelAnimationFrame(t.raf!);
                 t.quad?.geometry.dispose();
                 t.material.dispose();
@@ -763,7 +773,11 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
                 timeOffset,
                 composer,
                 touch,
-                liquidEffect
+                liquidEffect,
+                pointerHandlers: {
+                    down: onPointerDown,
+                    move: onPointerMove
+                }
             };
         } else {
             const t = threeRef.current!;
@@ -794,10 +808,13 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
             if (!threeRef.current) return;
             const t = threeRef.current;
             t.resizeObserver?.disconnect();
-            window.removeEventListener('pointerdown', onPointerDown);
-            window.removeEventListener('pointermove', onPointerMove);
-            t.renderer.domElement.removeEventListener('pointerdown', onPointerDown);
-            t.renderer.domElement.removeEventListener('pointermove', onPointerMove);
+            if (t.pointerHandlers) {
+                window.removeEventListener('pointerdown', t.pointerHandlers.down);
+                window.removeEventListener('pointermove', t.pointerHandlers.move);
+                t.renderer.domElement.removeEventListener('pointerdown', t.pointerHandlers.down);
+                t.renderer.domElement.removeEventListener('pointermove', t.pointerHandlers.move);
+                t.pointerHandlers = undefined;
+            }
             cancelAnimationFrame(t.raf!);
             t.quad?.geometry.dispose();
             t.material.dispose();

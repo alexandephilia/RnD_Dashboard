@@ -1,4 +1,5 @@
 "use client";
+import { BorderBeam } from "@/components/magicui/border-beam";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -97,36 +98,80 @@ function LoginForm() {
                             <div className="space-y-1.5">
                                 <Label htmlFor="email">User</Label>
                                 <div className="relative">
-                                    <Input
-                                        id="email"
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                        placeholder="Retard"
-                                        autoComplete="username"
-                                        required
-                                        className="ps-14 border border-dashed border-yellow-500/30 bg-transparent text-foreground focus-visible:ring-2 focus-visible:ring-yellow-500/50 focus-visible:border-yellow-400/70"
-                                    />
-                                    <span className="pointer-events-none absolute inset-y-0 start-0 grid w-12 place-items-center text-yellow-400 bg-transparent border border-dashed border-yellow-500/40 border-r-0 rounded-s-md">
-                                        <RiUserLine size={18} aria-hidden="true" />
-                                    </span>
+                                    <div className="group relative flex items-center overflow-hidden rounded-lg border border-dashed border-yellow-500/35 bg-background/30 backdrop-blur-sm transition-all duration-300 focus-within:border-yellow-400 focus-within:shadow-[0_0_25px_rgba(250,204,21,0.2)]">
+                                    <BorderBeam
+                                            size={20}
+                                            duration={8}
+                                             colorFrom="rgba(253, 224, 71, 0.65)"
+                                             colorTo="rgba(253, 223, 71, 0.36)"
+                                             initialOffset={0}
+                                            borderWidth={1}
+                                            inset={0}
+                                            className="opacity-75 blur-[2px]"
+                                        />
+                                        <BorderBeam
+                                            size={20}
+                                            duration={8}
+                                             colorFrom="rgba(253, 224, 71, 0.65)"
+                                             colorTo="rgba(253, 223, 71, 0.36)"
+                                             initialOffset={50}
+                                            borderWidth={1}
+                                            inset={0}
+                                            className="opacity-75 blur-[2px]"
+                                        />
+                                        <span className="pointer-events-none relative z-10 grid h-full w-12 place-items-center border-e border-dashed border-yellow-500/35 bg-transparent text-yellow-300 transition-colors duration-300 group-focus-within:text-yellow-200">
+                                            <RiUserLine size={18} aria-hidden="true" />
+                                        </span>
+                                        <Input
+                                            id="email"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            placeholder="Retard"
+                                            autoComplete="username"
+                                            required
+                                            className="relative z-10 h-11 flex-1 border-none bg-transparent px-3 text-foreground focus-visible:border-none focus-visible:outline-none focus-visible:ring-0"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                             <div className="space-y-1.5">
                                 <Label htmlFor="password">Password</Label>
                                 <div className="relative">
-                                    <Input
-                                        id="password"
-                                        type="password"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        placeholder="••••••••"
-                                        autoComplete="current-password"
-                                        required
-                                        className="ps-14 border border-dashed border-yellow-500/30 bg-transparent text-foreground focus-visible:ring-2 focus-visible:ring-yellow-500/50 focus-visible:border-yellow-400/70"
-                                    />
-                                    <span className="pointer-events-none absolute inset-y-0 start-0 grid w-12 place-items-center text-yellow-400 bg-transparent border border-dashed border-yellow-500/40 border-r-0 rounded-s-md">
-                                        <RiLockLine size={18} aria-hidden="true" />
-                                    </span>
+                                    <div className="group relative flex items-center overflow-hidden rounded-lg border border-dashed border-yellow-500/35 bg-background/30 backdrop-blur-sm transition-all duration-300 focus-within:border-yellow-400 focus-within:shadow-[0_0_25px_rgba(250,204,21,0.2)]">
+                                        <BorderBeam
+                                            size={20}
+                                            duration={8}
+                                            colorFrom="rgba(253, 224, 71, 0.65)"
+                                            colorTo="rgba(253, 223, 71, 0.36)"
+                                            initialOffset={50}
+                                            borderWidth={1}
+                                            inset={0}
+                                            className="opacity-90 blur-[1.2px]"
+                                        />
+                                   <BorderBeam
+                                            size={20}
+                                            duration={8}
+                                             colorFrom="rgba(253, 224, 71, 0.65)"
+                                             colorTo="rgba(253, 223, 71, 0.36)"
+                                             initialOffset={0}
+                                            borderWidth={1}
+                                            inset={0}
+                                            className="opacity-75 blur-[2px]"
+                                        />
+                                        <span className="pointer-events-none relative z-10 grid h-full w-12 place-items-center border-e border-dashed border-yellow-500/35 bg-transparent text-yellow-300 transition-colors duration-300 group-focus-within:text-yellow-200">
+                                            <RiLockLine size={18} aria-hidden="true" />
+                                        </span>
+                                        <Input
+                                            id="password"
+                                            type="password"
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            placeholder="••••••••"
+                                            autoComplete="current-password"
+                                            required
+                                            className="relative z-10 h-11 flex-1 border-none bg-transparent px-3 text-foreground focus-visible:border-none focus-visible:outline-none focus-visible:ring-0"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                             {error && (
