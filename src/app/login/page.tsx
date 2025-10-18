@@ -183,7 +183,7 @@ function LoginForm() {
                                 <Button
                                     variant="ghost"
                                     type="submit"
-                                    className={`px-6 border border-dashed border-yellow-500/60 bg-transparent text-yellow-400 hover:bg-yellow-500/10 hover:text-yellow-300 focus-visible:ring-yellow-400 focus-visible:ring-2 focus-visible:ring-offset-0 ${loading ? "cursor-wait" : ""}`}
+                                    className={`rounded-tl-4xl px-6 border border-dashed border-yellow-500/60 bg-transparent text-yellow-400 hover:bg-yellow-500/10 hover:text-yellow-300 focus-visible:ring-yellow-400 focus-visible:ring-2 focus-visible:ring-offset-0 ${loading ? "cursor-wait" : ""}`}
                                     disabled={loading}
                                     aria-busy={loading}
                                 >
