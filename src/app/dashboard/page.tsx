@@ -26,6 +26,7 @@ import { Press_Start_2P } from "next/font/google";
 
 const pressStart = Press_Start_2P({ weight: "400", subsets: ["latin"] });
 
+import PixelBlastDashboard from "@/components/effects/PixelBlastDashboard";
 import { FloatingSidebarProvider } from "@/components/sidebar-hover-trigger";
 import { SidebarTriggerSmart } from "@/components/sidebar-trigger-smart";
 import { StatsLive } from "@/components/stats-live";
@@ -298,8 +299,9 @@ export default async function Page() {
         <SidebarProvider>
             <AppSidebar />
             <FloatingSidebarProvider>
-                <SidebarInset className="overflow-hidden px-4 md:px-6 lg:px-8">
-                    <header className="flex h-16 shrink-0 items-center gap-2 border-b">
+                <SidebarInset className="overflow-hidden px-4 md:px-6 lg:px-8" data-pixelblast-dashboard="true">
+                    <PixelBlastDashboard />
+                    <header className="flex h-16 shrink-0 items-center gap-2 border-b relative z-10">
                         <div className="flex flex-1 items-center gap-2 px-3">
                             <SidebarTriggerSmart className="-ms-4" />
                             <Separator
@@ -325,7 +327,7 @@ export default async function Page() {
                             <UserDropdown />
                         </div>
                     </header>
-                    <div className="flex flex-1 flex-col gap-4 lg:gap-6 py-4 lg:py-6">
+                    <div className="flex flex-1 flex-col gap-4 lg:gap-6 py-4 lg:py-6 relative z-10">
                         {/* Page intro */}
                         <div className="flex items-center justify-between gap-4">
                             <div className="space-y-1">
