@@ -88,12 +88,12 @@ export default function LoginPage() {
     return (
         <div className="relative min-h-svh grid place-items-center p-4">
             <PixelBlast
-                variant="circle"
-                pixelSize={6}
-                color="#FACC15"
+                variant="diamond"
+                pixelSize={3}
+                color="#facc15bd"
                 patternScale={3}
                 patternDensity={1.2}
-                pixelSizeJitter={0.5}
+                pixelSizeJitter={0.6}
                 enableRipples
                 rippleSpeed={0.4}
                 rippleThickness={0.12}
