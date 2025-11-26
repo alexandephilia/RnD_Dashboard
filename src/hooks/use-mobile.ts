@@ -3,19 +3,19 @@ import * as React from "react";
 const MOBILE_BREAKPOINT = 1024;
 
 export function useIsMobile() {
-  const [isMobile, setIsMobile] = React.useState<boolean | undefined>(
-    undefined,
-  );
+    // undefined = not yet determined (SSR/initial), boolean = determined
+    const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined);
 
-  React.useEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
-    const onChange = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-    };
-    mql.addEventListener("change", onChange);
-    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-    return () => mql.removeEventListener("change", onChange);
-  }, []);
+    React.useEffect(() => {
+        const checkMobile = () => window.innerWidth < MOBILE_BREAKPOINT;
+        setIsMobile(checkMobile());
 
-  return !!isMobile;
+        const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
+        const onChange = () => setIsMobile(checkMobile());
+
+        mql.addEventListener("change", onChange);
+        return () => mql.removeEventListener("change", onChange);
+    }, []);
+
+    return isMobile;
 }

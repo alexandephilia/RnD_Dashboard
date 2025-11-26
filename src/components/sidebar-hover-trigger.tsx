@@ -1,9 +1,9 @@
 "use client";
 
-import { useSidebar } from "@/components/ui/sidebar";
+import { SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
+import { RiLogoutBoxLine, RiScanLine, RiSettings3Line } from "@remixicon/react";
 import { Press_Start_2P } from "next/font/google";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
-import { DesktopSidebarContent } from "./app-sidebar";
 
 const pressStart = Press_Start_2P({ weight: "400", subsets: ["latin"] });
 
@@ -12,6 +12,7 @@ type FloatingSidebarContextType = {
     isFloatingVisible: boolean;
     isTransforming: boolean;
     triggerTransformation: () => void;
+    isMobile: boolean;
 };
 
 const FloatingSidebarContext = createContext<FloatingSidebarContextType | null>(null);
@@ -25,13 +26,28 @@ export function useFloatingSidebar() {
 }
 
 export function FloatingSidebarProvider({ children }: { children: React.ReactNode }) {
-    const { open: mainSidebarOpen, setOpen, isMobile } = useSidebar();
+    const { open: mainSidebarOpen, setOpen, isMobile, isMobileReady } = useSidebar();
     const [isVisible, setIsVisible] = useState(false);
     const [isTransforming, setIsTransforming] = useState(false);
     const [showMethod, setShowMethod] = useState<'hover' | 'click' | null>(null);
     const isTransformingRef = useRef(false);
 
+    // Reset floating sidebar state when switching to mobile
+    useEffect(() => {
+        if (isMobile) {
+            setIsVisible(false);
+            setIsTransforming(false);
+            setShowMethod(null);
+            isTransformingRef.current = false;
+            document.body.classList.remove('hover-sidebar-transforming');
+            document.body.classList.remove('hover-sidebar-transform-complete');
+            document.body.removeAttribute('data-floating-sidebar-active');
+        }
+    }, [isMobile]);
+
     const triggerTransformation = () => {
+        // Never trigger transformation on mobile
+        if (isMobile) return;
         if (!isVisible || isTransformingRef.current || mainSidebarOpen) return;
 
         isTransformingRef.current = true;
@@ -64,20 +80,23 @@ export function FloatingSidebarProvider({ children }: { children: React.ReactNod
         isFloatingVisible: isVisible,
         isTransforming,
         triggerTransformation,
+        isMobile,
     };
 
     return (
         <FloatingSidebarContext.Provider value={value}>
             {children}
-            <SidebarHoverTrigger
-                isVisible={isVisible}
-                setIsVisible={setIsVisible}
-                setShowMethod={setShowMethod}
-                showMethod={showMethod}
-                isTransforming={isTransforming}
-                mainSidebarOpen={mainSidebarOpen}
-                isMobile={isMobile}
-            />
+            {/* Only render floating sidebar trigger on desktop when ready */}
+            {isMobileReady && !isMobile && (
+                <SidebarHoverTrigger
+                    isVisible={isVisible}
+                    setIsVisible={setIsVisible}
+                    setShowMethod={setShowMethod}
+                    showMethod={showMethod}
+                    isTransforming={isTransforming}
+                    mainSidebarOpen={mainSidebarOpen}
+                />
+            )}
         </FloatingSidebarContext.Provider>
     );
 }
@@ -89,9 +108,9 @@ type SidebarHoverTriggerProps = {
     showMethod: 'hover' | 'click' | null;
     isTransforming: boolean;
     mainSidebarOpen: boolean;
-    isMobile: boolean;
 };
 
+// Desktop-only floating sidebar component
 function SidebarHoverTrigger({
     isVisible,
     setIsVisible,
@@ -99,7 +118,6 @@ function SidebarHoverTrigger({
     showMethod,
     isTransforming,
     mainSidebarOpen,
-    isMobile,
 }: SidebarHoverTriggerProps) {
     const sidebarRef = useRef<HTMLDivElement>(null);
     const [isSlideOut, setIsSlideOut] = useState(false);
@@ -152,11 +170,6 @@ function SidebarHoverTrigger({
     }, []);
 
     useEffect(() => {
-        if (isMobile) {
-            setIsVisible(false);
-            return;
-        }
-
         if (mainSidebarOpen && !isTransforming) {
             setIsVisible(false);
             return;
@@ -177,7 +190,7 @@ function SidebarHoverTrigger({
         return () => {
             window.removeEventListener("mousemove", handleMouseMove);
         };
-    }, [isMobile, mainSidebarOpen, isVisible, isTransforming, setIsVisible, setShowMethod]);
+    }, [mainSidebarOpen, isVisible, isTransforming, setIsVisible, setShowMethod]);
 
     // Inject CSS for seamless transformation
     useEffect(() => {
@@ -201,8 +214,8 @@ function SidebarHoverTrigger({
         };
     }, []);
 
-    // Show during transformation or when visible
-    if (isMobile || (!isVisible && !isTransforming)) return null;
+    // Show during transformation or when visible (this component is only rendered on desktop)
+    if (!isVisible && !isTransforming) return null;
 
     // Determine animation state:
     // - Hover-triggered AND not transforming → play slide-in
@@ -265,8 +278,98 @@ function SidebarHoverTrigger({
                     animation: none !important;
                 }
             `}</style>
-            {/* Use the shared DesktopSidebarContent component */}
-            <DesktopSidebarContent />
+            {/* EXACT structure match to default sidebar */}
+            <div data-sidebar="sidebar" className="flex h-full w-full flex-col bg-sidebar">
+                {/* Header with data attribute */}
+                <SidebarHeader>
+                    <div className="px-2 py-2">
+                        <div className="flex items-center h-12 rounded-md px-2 select-none">
+                            <span className={`font-semibold text-lg ${pressStart.className}`}>
+                                RnD Admin
+                            </span>
+                        </div>
+                    </div>
+                    <hr className="border-t border-border mx-2 -mt-px" />
+                </SidebarHeader>
+
+                {/* Content with data attribute */}
+                <SidebarContent>
+                    {/* Sections Group */}
+                    <SidebarGroup>
+                        <SidebarGroupLabel className="uppercase text-muted-foreground/60">
+                            Sections
+                        </SidebarGroupLabel>
+                        <SidebarGroupContent className="px-2">
+                            <SidebarMenu>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton
+                                        asChild
+                                        className="group/menu-button font-medium gap-3 h-9 rounded-md bg-gradient-to-r transition-colors hover:bg-transparent hover:from-sidebar-accent hover:to-sidebar-accent/40 data-[active=true]:!bg-transparent data-[active=true]:from-yellow-500/12 data-[active=true]:to-yellow-500/5 data-[active=true]:border data-[active=true]:border-yellow-500/30 data-[active=true]:!text-yellow-600 [&>svg]:size-auto"
+                                        isActive
+                                    >
+                                        <a href="/dashboard">
+                                            <RiScanLine
+                                                className="text-muted-foreground/60 group-data-[active=true]/menu-button:text-yellow-500"
+                                                size={22}
+                                                aria-hidden="true"
+                                                suppressHydrationWarning
+                                            />
+                                            <span>Dashboard</span>
+                                        </a>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            </SidebarMenu>
+                        </SidebarGroupContent>
+                    </SidebarGroup>
+
+                    {/* Other Group */}
+                    <SidebarGroup>
+                        <SidebarGroupLabel className="uppercase text-muted-foreground/60">
+                            Other
+                        </SidebarGroupLabel>
+                        <SidebarGroupContent className="px-2">
+                            <SidebarMenu>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton
+                                        asChild
+                                        className="group/menu-button font-medium gap-3 h-9 rounded-md bg-gradient-to-r transition-colors hover:bg-transparent hover:from-sidebar-accent hover:to-sidebar-accent/40 data-[active=true]:!bg-transparent data-[active=true]:from-yellow-500/12 data-[active=true]:to-yellow-500/5 data-[active=true]:border data-[active=true]:border-yellow-500/30 data-[active=true]:!text-yellow-600 [&>svg]:size-auto"
+                                    >
+                                        <a href="#">
+                                            <RiSettings3Line
+                                                className="text-muted-foreground/60 group-data-[active=true]/menu-button:text-yellow-500"
+                                                size={22}
+                                                aria-hidden="true"
+                                                suppressHydrationWarning
+                                            />
+                                            <span>Settings</span>
+                                        </a>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            </SidebarMenu>
+                        </SidebarGroupContent>
+                    </SidebarGroup>
+                </SidebarContent>
+
+                {/* Footer with data attribute */}
+                <SidebarFooter>
+                    <hr className="border-t border-border mx-2 -mt-px" />
+                    <SidebarMenu>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild className="font-medium gap-3 h-9 rounded-md bg-gradient-to-r hover:bg-transparent hover:from-sidebar-accent hover:to-sidebar-accent/40 data-[active=true]:from-yellow-500/15 data-[active=true]:to-yellow-500/5 [&>svg]:size-auto">
+                                <a href="/logout">
+                                    <RiLogoutBoxLine
+                                        className="text-muted-foreground/60 group-data-[active=true]/menu-button:text-yellow-500"
+                                        size={22}
+                                        aria-hidden="true"
+                                        suppressHydrationWarning
+                                    />
+                                    <span>Sign Out</span>
+                                </a>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    </SidebarMenu>
+                </SidebarFooter>
+            </div>
         </div>
     );
 }

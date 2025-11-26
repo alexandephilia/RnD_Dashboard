@@ -32,7 +32,8 @@ type SidebarContext = {
     setOpen: (open: boolean) => void;
     openMobile: boolean;
     setOpenMobile: (open: boolean) => void;
-    isMobile: boolean;
+    isMobile: boolean; // false when undefined (SSR/loading)
+    isMobileReady: boolean; // true once we know the actual value
     toggleSidebar: () => void;
 };
 
@@ -59,7 +60,10 @@ function SidebarProvider({
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
 }) {
-    const isMobile = useIsMobile();
+    const isMobileRaw = useIsMobile();
+    // isMobile is false during SSR/loading, true/false once determined
+    const isMobile = isMobileRaw ?? false;
+    const isMobileReady = isMobileRaw !== undefined;
     const [openMobile, setOpenMobile] = React.useState(false);
 
     const [_open, _setOpen] = React.useState(defaultOpen);
@@ -105,11 +109,12 @@ function SidebarProvider({
             open,
             setOpen,
             isMobile,
+            isMobileReady,
             openMobile,
             setOpenMobile,
             toggleSidebar,
         }),
-        [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar],
+        [state, open, setOpen, isMobile, isMobileReady, openMobile, setOpenMobile, toggleSidebar],
     );
 
     return (
@@ -148,7 +153,7 @@ function Sidebar({
     variant?: "sidebar" | "floating" | "inset";
     collapsible?: "offcanvas" | "icon" | "none";
 }) {
-    const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
+    const { isMobile, isMobileReady, state, openMobile, setOpenMobile } = useSidebar();
 
     if (collapsible === "none") {
         return (
@@ -164,21 +169,48 @@ function Sidebar({
         );
     }
 
+    // Don't render until we know the viewport to prevent hydration mismatch
+    if (!isMobileReady) {
+        return null;
+    }
+
     if (isMobile) {
         return (
             <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
                 <SheetContent
                     data-sidebar="sidebar"
                     data-mobile="true"
-                    className="w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+                    className="w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground"
                     style={
                         {
                             "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
                         } as React.CSSProperties
                     }
                     side={side}
+                    hideCloseButton
                 >
                     <SheetTitle className="hidden">Menu</SheetTitle>
+                    {/* Mobile close button - positioned in top-right */}
+                    <button
+                        onClick={() => setOpenMobile(false)}
+                        className="absolute top-4 right-4 z-10 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                        aria-label="Close menu"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        >
+                            <path d="M18 6 6 18" />
+                            <path d="m6 6 12 12" />
+                        </svg>
+                    </button>
                     <div className="flex h-full w-full flex-col">{children}</div>
                 </SheetContent>
             </Sheet>
@@ -232,7 +264,7 @@ function SidebarTrigger({
     onClick,
     ...props
 }: React.ComponentProps<typeof Button>) {
-    const { toggleSidebar } = useSidebar();
+    const { toggleSidebar, isMobile } = useSidebar();
 
     return (
         <Button
@@ -249,7 +281,28 @@ function SidebarTrigger({
             }}
             {...props}
         >
-            <RiLayoutLeftLine className="size-5.5" size={22} aria-hidden="true" suppressHydrationWarning />
+            {/* Show hamburger menu on mobile, layout icon on desktop */}
+            {isMobile ? (
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="22"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="size-5.5"
+                    aria-hidden="true"
+                >
+                    <line x1="4" x2="20" y1="12" y2="12" />
+                    <line x1="4" x2="20" y1="6" y2="6" />
+                    <line x1="4" x2="20" y1="18" y2="18" />
+                </svg>
+            ) : (
+                <RiLayoutLeftLine className="size-5.5" size={22} aria-hidden="true" suppressHydrationWarning />
+            )}
             <span className="sr-only">Toggle Sidebar</span>
         </Button>
     );
