@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { RiLoader4Line, RiLockLine, RiUserLine } from "@remixicon/react";
 import { Press_Start_2P } from "next/font/google";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 const pressStart = Press_Start_2P({ weight: "400", subsets: ["latin"] });
 
@@ -53,7 +53,7 @@ function ShuffleText({ text, duration = 1200, fps = 30 }: { text: string; durati
     );
 }
 
-export default function LoginPage() {
+function LoginPageContent() {
     const router = useRouter();
     const search = useSearchParams();
     const next = search.get("next") || "/dashboard";
@@ -175,5 +175,13 @@ export default function LoginPage() {
                 </Card>
             </div>
         </div>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <LoginPageContent />
+        </Suspense>
     );
 }
