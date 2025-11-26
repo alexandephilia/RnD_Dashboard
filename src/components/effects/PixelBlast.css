@@ -1,11 +1,17 @@
 .pixel-blast-container {
-  position: fixed;
-  top: -155px; /* requested offset */
-  left: 0;
-  right: 0;
-  width: 100%;
-  height: 100%; /* extend to cover the offset */
-  min-height: auto; /* ensure at least full viewport height */
-  overflow: visible;
-  z-index: 0;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    width: 100dvw;
+    height: 100dvh;
+    z-index: 0;
+    touch-action: none;
+}
+
+.pixel-blast-container canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
 }

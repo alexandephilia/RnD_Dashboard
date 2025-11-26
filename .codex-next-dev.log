@@ -98,3 +98,10 @@
  ✓ Compiled in 784ms
  ✓ Compiled in 102ms
  ✓ Compiled in 197ms
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 1624ms
+ GET /api/rnd/stats 404 in 1ms
+ GET /api/rnd/debug 404 in 278ms
+ GET /favicon.ico?favicon.0b3bf435.ico 200 in 361ms
+ GET /api/rnd/debug 404 in 76ms
+[?25h
