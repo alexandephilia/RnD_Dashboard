@@ -1,192 +1,1574 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ColumnDef } from "@tanstack/react-table";
+import { CheckIcon, CopyIcon, DownloadIcon, EyeIcon } from "lucide-react";
+import { Press_Start_2P } from "next/font/google";
+import { type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { DataTable } from "@/components/data-table";
+import { JsonTreeViewer } from "@/components/json-tree-viewer";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
 } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
+
+const pressStart = Press_Start_2P({ weight: "400", subsets: ["latin"] });
+
+type GenericRecord = Record<string, unknown>;
 
 type Props = {
-  tokenCalls: unknown[];
-  users: unknown[];
+    tokenCalls: unknown[];
+    users: unknown[];
+    groupMonthlyTokens: unknown[];
 };
 
-export function DbLists({ tokenCalls, users }: Props) {
-  const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState<{ title: string; data: unknown } | null>(
-    null,
-  );
+type TabKey = "token-calls" | "users" | "group-monthly";
 
-  // Helpers to consistently order lists newest-first
-  const toMillis = (v: any): number => {
-    if (!v) return 0;
-    if (typeof v === "number") return v;
-    if (typeof v === "string") {
-      const t = Date.parse(v);
-      return Number.isFinite(t) ? t : 0;
+const TAB_ORDER: TabKey[] = ["token-calls", "users", "group-monthly"];
+
+const toNumber = (value: unknown): number | null => {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string") {
+        const parsed = Number(value);
+        if (Number.isFinite(parsed)) return parsed;
     }
-    if (v instanceof Date) return +v || 0;
+    return null;
+};
+
+const formatDate = (value: unknown): string => {
+    if (!value) return "—";
+    const date = new Date(value as string);
+    if (Number.isNaN(date.getTime())) return "—";
+    return date.toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+};
+
+const formatNumber = (value: unknown): string => {
+    const num = toNumber(value);
+    if (num === null) return "—";
+    return num.toLocaleString("en-US", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+    });
+};
+
+const formatMcap = (value: unknown): string => {
+    const num = toNumber(value);
+    if (num === null) return "—";
+    if (num >= 1_000_000_000) {
+        return `${(num / 1_000_000_000).toFixed(2)}B`;
+    }
+    if (num >= 1_000_000) {
+        return `${(num / 1_000_000).toFixed(2)}M`;
+    }
+    if (num >= 1_000) {
+        return `${(num / 1_000).toFixed(2)}K`;
+    }
+    return `${num.toFixed(2)}`;
+};
+
+const isFiniteNumber = (value: unknown): value is number =>
+    typeof value === "number" && Number.isFinite(value);
+
+// Removed shimmerStateFor - no longer needed since we don't use data attributes for animation control
+
+const toMillis = (value: unknown): number => {
+    if (typeof value === "number") return value;
+    if (typeof value === "string") {
+        const parsed = Date.parse(value);
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+    if (value instanceof Date) return value.getTime() || 0;
     return 0;
-  };
-  const callTs = (c: any): number =>
-    toMillis(
-      c?.last_updated ?? c?.updatedAt ?? c?.createdAt ?? c?.first_poster?.posted_at,
+};
+
+const callTimestamp = (record: GenericRecord): number => {
+    const fallback = (record.first_poster as GenericRecord | undefined)?.posted_at;
+    return toMillis(record.last_updated ?? record.updatedAt ?? record.createdAt ?? fallback);
+};
+
+const userTimestamp = (record: GenericRecord): number => {
+    return toMillis(record.updatedAt ?? record.createdAt ?? record.joined_at);
+};
+
+const groupMonthlyTimestamp = (record: GenericRecord): number => {
+    return toMillis(record.updatedAt ?? record.last_updated ?? record.createdAt ?? record.month);
+};
+
+const asRecords = (value: unknown[]): GenericRecord[] =>
+    Array.isArray(value)
+        ? value.filter((item): item is GenericRecord => Boolean(item) && typeof item === "object")
+        : [];
+
+export function DbLists({ tokenCalls, users, groupMonthlyTokens }: Props) {
+    const [open, setOpen] = useState(false);
+    const [selected, setSelected] = useState<{ title: string; data: GenericRecord } | null>(
+        null,
     );
-  const userTs = (u: any): number =>
-    toMillis(u?.updatedAt ?? u?.createdAt ?? u?.joined_at);
+    const [copied, setCopied] = useState(false);
+    const [activeTab, setActiveTab] = useState<TabKey>("token-calls");
+    const [activeScrubRow, setActiveScrubRow] = useState<string | null>(null);
+    const [scrubOverlay, setScrubOverlay] = useState<{
+        rowId: string;
+        left: number;
+        top: number;
+    } | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const [justClicked, setJustClicked] = useState(false);
+    const [scrubVisual, setScrubVisual] = useState<number>(0); // visual bar, may lag behind
+    const activeScrubRowId = scrubOverlay?.rowId ?? null;
+    const clickDelayRef = useRef<number | null>(null);
+    const overlayRef = useRef<HTMLDivElement | null>(null);
 
-  const sortCalls = (arr: unknown[]) =>
-    [...(Array.isArray(arr) ? arr : [])].sort((a, b) => callTs(b) - callTs(a));
-  const sortUsers = (arr: unknown[]) =>
-    [...(Array.isArray(arr) ? arr : [])].sort((a, b) => userTs(b) - userTs(a));
 
-  const [liveCalls, setLiveCalls] = useState<unknown[]>(
-    sortCalls(tokenCalls).slice(0, 100),
-  );
-  const [liveUsers, setLiveUsers] = useState<unknown[]>(
-    sortUsers(users).slice(0, 100),
-  );
+    const sortBy = useCallback(
+        (records: GenericRecord[], getTimestamp: (record: GenericRecord) => number) =>
+            [...records].sort((a, b) => getTimestamp(b) - getTimestamp(a)),
+        [],
+    );
 
-  // Subscribe to SSE for token calls; fallback to polling if SSE fails
-  useEffect(() => {
-    let closed = false;
-    try {
-      const es = new EventSource("/api/rnd/token-calls/stream");
-      es.onmessage = (e) => {
-        try {
-          const obj = JSON.parse(e.data);
-          setLiveCalls((prev) => sortCalls([obj, ...(prev as any[])]).slice(0, 100));
-        } catch {
-          // ignore non-JSON lines
+    const [liveCalls, setLiveCalls] = useState<GenericRecord[]>(
+        sortBy(asRecords(tokenCalls), callTimestamp).slice(0, 100),
+    );
+    const [liveUsers, setLiveUsers] = useState<GenericRecord[]>(
+        sortBy(asRecords(users), userTimestamp).slice(0, 100),
+    );
+    const [liveGroupMonthly, setLiveGroupMonthly] = useState<GenericRecord[]>(
+        sortBy(asRecords(groupMonthlyTokens), groupMonthlyTimestamp).slice(0, 100),
+    );
+
+    const getTokenKey = useCallback((record: GenericRecord) => {
+        if (typeof record._id === "string") return record._id;
+        const tokenAddress = typeof record.token_address === "string" ? record.token_address : "";
+        const groupIdValue = record.group_id;
+        const groupId =
+            typeof groupIdValue === "string"
+                ? groupIdValue
+                : typeof groupIdValue === "number"
+                    ? String(groupIdValue)
+                    : "";
+        return `${tokenAddress}-${groupId}`;
+    }, []);
+
+    const mergeTokenRecords = useCallback(
+        (incoming: GenericRecord[], previous: GenericRecord[]) => {
+            if (!previous.length) return incoming;
+            const prevMap = new Map(previous.map((record) => [getTokenKey(record), record]));
+
+            const merged = incoming.map((record) => {
+                const key = getTokenKey(record);
+                const prevRecord = prevMap.get(key);
+                if (!prevRecord) return record;
+
+                const stamp = (value: GenericRecord) =>
+                    value.last_updated ?? value.updatedAt ?? value.createdAt ?? "";
+
+                const unchanged =
+                    stamp(prevRecord) === stamp(record) &&
+                    toNumber(prevRecord.last_mcap) === toNumber(record.last_mcap) &&
+                    toNumber(prevRecord.first_mcap) === toNumber(record.first_mcap) &&
+                    toNumber(prevRecord.ath_mcap) === toNumber(record.ath_mcap) &&
+                    toNumber(prevRecord.post_count) === toNumber(record.post_count);
+
+                return unchanged ? prevRecord : record;
+            });
+
+            const isSameReference =
+                merged.length === previous.length &&
+                merged.every((item, index) => item === previous[index]);
+
+            return isSameReference ? previous : merged;
+        },
+        [getTokenKey],
+    );
+
+    const activeRecord = useMemo(() => {
+        if (!activeScrubRowId) return null;
+        return liveCalls.find((item) => {
+            const tokenAddress = item.token_address;
+            const groupId = item.group_id;
+            return `${tokenAddress}-${groupId}` === activeScrubRowId;
+        }) ?? null;
+    }, [liveCalls, activeScrubRowId]);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const fetchTokenCalls = async () => {
+            try {
+                const res = await fetch("/api/rnd/token-calls?limit=100", { cache: "no-store" });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (cancelled || !Array.isArray(data)) return;
+                const next = sortBy(asRecords(data), callTimestamp).slice(0, 100);
+                setLiveCalls((prev) => mergeTokenRecords(next, prev));
+            } catch {
+                // ignore fetch errors
+            }
+        };
+
+        fetchTokenCalls();
+        const id = setInterval(fetchTokenCalls, 10_000);
+        return () => {
+            cancelled = true;
+            clearInterval(id);
+        };
+    }, [sortBy, mergeTokenRecords]);
+
+    useEffect(() => {
+        if (!activeRecord) return;
+
+        const rawFirst = toNumber(activeRecord.first_mcap);
+        const rawAth = toNumber(activeRecord.ath_mcap);
+        const rawLast = toNumber(activeRecord.last_mcap);
+
+        const firstValue = isFiniteNumber(rawFirst) ? rawFirst : null;
+        const athValue = isFiniteNumber(rawAth) ? rawAth : null;
+        const lastValue = isFiniteNumber(rawLast) ? rawLast : null;
+
+        if (firstValue === null || athValue === null || athValue <= 0) return;
+
+        const boundedCurrent = (() => {
+            const source = lastValue ?? firstValue;
+            if (source === null) return firstValue;
+            return Math.max(0, Math.min(athValue, source));
+        })();
+
+        if (boundedCurrent === null) return;
+        const nextPercent = Math.max(
+            0,
+            Math.min(100, (boundedCurrent / athValue) * 100),
+        );
+
+        if (!isDragging && !justClicked) {
+            setScrubVisual((prev) => (prev === nextPercent ? prev : nextPercent));
         }
-      };
-      es.onerror = () => {
-        es.close();
-      };
-      return () => {
-        closed = true;
-        es.close();
-      };
-    } catch {
-      // ignore
-    }
-    // polling fallback
-    const id = setInterval(async () => {
-      if (closed) return;
-      try {
-        const res = await fetch("/api/rnd/token-calls?limit=100", { cache: "no-store" });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (Array.isArray(data)) setLiveCalls(sortCalls(data).slice(0, 100));
-      } catch {
-        // ignore
-      }
-    }, 30000);
-    return () => clearInterval(id);
-  }, []);
+    }, [activeRecord, isDragging, justClicked]);
 
-  // Poll users regularly from proxy
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      try {
-        const res = await fetch("/api/rnd/users?limit=100", { cache: "no-store" });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (active && Array.isArray(data)) setLiveUsers(sortUsers(data).slice(0, 100));
-      } catch {}
-    };
-    load();
-    const id = setInterval(load, 30000);
-    return () => {
-      active = false;
-      clearInterval(id);
-    };
-  }, []);
+    // Dismiss scrub overlay on outside click, handle resize, and update position on scroll
+    useEffect(() => {
+        if (!scrubOverlay) return;
 
-  return (
-    <>
-      <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2">
-        <Card>
-          <CardHeader className="flex-row items-center justify-between">
-            <CardTitle>Token Calls</CardTitle>
-            <span className="text-muted-foreground/60 text-sm">Latest Events</span>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-md border bg-muted/20 p-3 pb-0 max-h-96 overflow-auto">
-              {liveCalls?.length ? (
-                <ul className="space-y-2">
-                  {liveCalls.map((item, idx) => (
-                    <li
-                      key={idx}
-                      className="overflow-x-auto cursor-pointer"
-                      onClick={() => {
-                        setSelected({ title: "Token Call", data: item });
-                        setOpen(true);
-                      }}
-                    >
-                      <code className="block min-w-full w-max text-xs font-mono whitespace-nowrap p-2 rounded-md border border-yellow-500/30 bg-yellow-500/10 hover:bg-yellow-500/15 transition-colors">
-                        {JSON.stringify(item)}
-                      </code>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="text-sm text-muted-foreground">No token call data found.</div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        const handleOutside = (e: MouseEvent | TouchEvent) => {
+            if (!overlayRef.current) return;
+            const target = e.target as Node;
+            if (!overlayRef.current.contains(target)) {
+                setActiveScrubRow(null);
+                setScrubOverlay(null);
+            }
+        };
 
-        <Card>
-          <CardHeader className="flex-row items-center justify-between">
-            <CardTitle>Users</CardTitle>
-            <span className="text-muted-foreground/60 text-sm">Latest Users</span>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-md border bg-muted/20 p-3 pb-0 max-h-96 overflow-auto">
-              {liveUsers?.length ? (
-                <ul className="space-y-2">
-                  {liveUsers.map((item, idx) => (
-                    <li
-                      key={idx}
-                      className="overflow-x-auto cursor-pointer"
-                      onClick={() => {
-                        setSelected({ title: "User", data: item });
-                        setOpen(true);
-                      }}
-                    >
-                      <code className="block min-w-full w-max text-xs font-mono whitespace-nowrap p-2 rounded-md border border-yellow-500/30 bg-yellow-500/10 hover:bg-yellow-500/15 transition-colors">
-                        {JSON.stringify(item)}
-                      </code>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="text-sm text-muted-foreground">No users found.</div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+        const handleResize = () => {
+            // Close overlay on resize to avoid positioning issues
+            setActiveScrubRow(null);
+            setScrubOverlay(null);
+        };
 
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="right" className="sm:max-w-md">
-          <SheetHeader>
-            <SheetTitle>{selected?.title ?? "Details"}</SheetTitle>
-          </SheetHeader>
-          <div className="p-4 pt-0">
-            <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 max-h-[70vh] overflow-auto">
-              <pre className="text-xs md:text-sm font-mono whitespace-pre-wrap break-words leading-5">
-                {selected ? JSON.stringify(selected.data, null, 2) : ""}
-              </pre>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
-    </>
-  );
+        const handleScroll = () => {
+            // Find the trigger button and recalculate overlay position
+            const triggerButton = document.querySelector(`[data-row-id="${scrubOverlay.rowId}"]`);
+            if (!triggerButton) return;
+
+            const rect = triggerButton.getBoundingClientRect();
+            const overlayWidth = 380;
+            const overlayHeight = 160;
+            const padding = 16;
+            const spacingBelow = 8;
+            const spacingAbove = 8;
+
+            let left = rect.left + rect.width / 2;
+            let top = rect.bottom + spacingBelow;
+
+            // Check if overlay would go off the right edge
+            const rightEdge = left + overlayWidth / 2;
+            if (rightEdge > window.innerWidth - padding) {
+                left = window.innerWidth - padding - overlayWidth / 2;
+            }
+
+            // Check if overlay would go off the left edge
+            const leftEdge = left - overlayWidth / 2;
+            if (leftEdge < padding) {
+                left = padding + overlayWidth / 2;
+            }
+
+            // Check if overlay would go off the bottom edge
+            const bottomEdge = rect.bottom + overlayHeight + spacingBelow;
+            if (bottomEdge > window.innerHeight) {
+                top = rect.top - overlayHeight - spacingAbove;
+            }
+
+            setScrubOverlay(prev => prev ? { ...prev, left, top } : null);
+        };
+
+        document.addEventListener('mousedown', handleOutside);
+        document.addEventListener('touchstart', handleOutside);
+        window.addEventListener('resize', handleResize);
+        window.addEventListener('scroll', handleScroll, true); // Use capture to catch all scroll events
+
+        return () => {
+            document.removeEventListener('mousedown', handleOutside);
+            document.removeEventListener('touchstart', handleOutside);
+            window.removeEventListener('resize', handleResize);
+            window.removeEventListener('scroll', handleScroll, true);
+        };
+    }, [scrubOverlay]);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            try {
+                const res = await fetch("/api/rnd/users?limit=100", { cache: "no-store" });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (cancelled || !Array.isArray(data)) return;
+                setLiveUsers(sortBy(asRecords(data), userTimestamp).slice(0, 100));
+            } catch {
+                // ignore fetch errors
+            }
+        };
+        load();
+        const id = setInterval(load, 30_000);
+        return () => {
+            cancelled = true;
+            clearInterval(id);
+        };
+    }, [sortBy]);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            try {
+                const res = await fetch("/api/rnd/group-monthly-tokens?limit=100", { cache: "no-store" });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (cancelled || !Array.isArray(data)) return;
+                setLiveGroupMonthly(
+                    sortBy(asRecords(data), groupMonthlyTimestamp).slice(0, 100),
+                );
+            } catch {
+                // ignore fetch errors
+            }
+        };
+        load();
+        const id = setInterval(load, 30_000);
+        return () => {
+            cancelled = true;
+            clearInterval(id);
+        };
+    }, [sortBy]);
+
+    const handleCopy = useCallback(async (value: string) => {
+        if (!value) return;
+        try {
+            await navigator.clipboard.writeText(value);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1_500);
+        } catch {
+            // ignore clipboard errors
+        }
+    }, []);
+
+    const handleViewDetails = useCallback((title: string, data: GenericRecord) => {
+        setSelected({ title, data });
+        setOpen(true);
+    }, []);
+
+    const jsonString = useMemo(
+        () => (selected ? JSON.stringify(selected.data, null, 2) : ""),
+        [selected],
+    );
+
+    const handleJsonValueCopy = useCallback((value: string) => {
+        handleCopy(value);
+    }, [handleCopy]);
+
+    const downloadCSV = useCallback((data: GenericRecord[], filename: string) => {
+        if (!data.length) return;
+
+        const keys = new Set<string>();
+        for (const item of data) {
+            Object.keys(item).forEach((key) => keys.add(key));
+        }
+        const headers = Array.from(keys);
+        const csv = [
+            headers.join(","),
+            ...data.map((item) =>
+                headers
+                    .map((header) => {
+                        const value = item[header];
+                        if (value === null || value === undefined) return "";
+                        if (typeof value === "object") {
+                            return JSON.stringify(value).replace(/"/g, '""');
+                        }
+                        return String(value).replace(/"/g, '""');
+                    })
+                    .map((field) => `"${field}"`)
+                    .join(","),
+            ),
+        ].join("\n");
+
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        link.style.display = "none";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }, []);
+
+    // Calculate percentiles for post_count tiers (used for percentile-based chips)
+    const postTiers = useMemo(() => {
+        const counts = liveCalls
+            .map(call => toNumber(call.post_count) ?? 0)
+            .filter(n => n > 0)
+            .sort((a, b) => a - b);
+
+        const getPct = (p: number) => counts.length ? (counts[Math.floor(counts.length * p)] || 0) : 0;
+
+        return {
+            p10: getPct(0.10),
+            p15: getPct(0.15),
+            p25: getPct(0.25),
+            p50: getPct(0.50),
+            p75: getPct(0.75),
+            p90: getPct(0.90),
+            sampleSize: counts.length,
+        };
+    }, [liveCalls]);
+
+    const tokenColumns = useMemo<ColumnDef<GenericRecord, unknown>[]>(() => {
+        return [
+            {
+                id: "token",
+                header: () => <div className="w-[220px] text-left">Token</div>,
+                accessorFn: (row) => {
+                    const info = row.token_info as GenericRecord | undefined;
+                    const name = typeof info?.name === "string" ? info.name : "";
+                    const symbol = typeof info?.symbol === "string" ? info.symbol : "";
+                    const address = typeof row.token_address === "string" ? row.token_address : "";
+                    return [name, symbol, address].filter(Boolean).join(" ").trim();
+                },
+                cell: ({ row }) => {
+                    const record = row.original;
+                    const info = record.token_info as GenericRecord | undefined;
+                    const logo = typeof info?.logo === "string" ? info.logo : undefined;
+                    const tokenName =
+                        typeof info?.name === "string" && info.name.trim().length > 0
+                            ? info.name
+                            : "Unknown Token";
+                    const tokenSymbol =
+                        typeof info?.symbol === "string" && info.symbol.trim().length > 0
+                            ? info.symbol
+                            : "";
+                    const address =
+                        typeof record.token_address === "string" ? record.token_address : "";
+                    const secondary = tokenSymbol || (address ? address.slice(0, 6) : "—");
+
+                    return (
+                        <div className="flex w-[220px] items-center gap-2">
+                            {logo ? (
+                                <img
+                                    src={logo}
+                                    alt={tokenName}
+                                    className="h-8 w-8 rounded-full object-cover"
+                                    onError={(event) => {
+                                        const img = event.currentTarget as HTMLImageElement;
+                                        // Try fallback: use first 2 letters of token name as placeholder
+                                        const initials = tokenName.slice(0, 2).toUpperCase();
+                                        img.style.display = "none";
+                                        // Create a fallback div
+                                        const fallback = document.createElement("div");
+                                        fallback.className = "h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium";
+                                        fallback.textContent = initials;
+                                        img.parentNode?.insertBefore(fallback, img);
+                                    }}
+                                />
+                            ) : (
+                                <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium">
+                                    {tokenName.slice(0, 2).toUpperCase()}
+                                </div>
+                            )}
+                            <div className="flex min-w-0 flex-col">
+                                <span className="truncate font-medium">{tokenName}</span>
+                                <span className="truncate text-xs text-muted-foreground">
+                                    {secondary}
+                                </span>
+                            </div>
+                        </div>
+                    );
+                },
+                filterFn: "includesString",
+            },
+            {
+                accessorKey: "group_id",
+                header: () => <div className="w-[140px] text-left">Group ID</div>,
+                cell: ({ row }) => (
+                    <div className="w-[140px] text-left">
+                        {typeof row.original.group_id === "string" && row.original.group_id !== "—" ? (
+                            <Badge
+                                variant="secondary"
+                                className="w-fit font-mono text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                            >
+                                {row.original.group_id}
+                            </Badge>
+                        ) : (
+                            <span className="font-mono text-xs text-muted-foreground">—</span>
+                        )}
+                    </div>
+                ),
+            },
+            {
+                id: "poster",
+                header: () => <div className="w-[160px] text-center">First Poster</div>,
+                accessorFn: (row) => {
+                    const poster = row.first_poster as GenericRecord | undefined;
+                    const firstName = typeof poster?.first_name === "string" ? poster.first_name : "";
+                    const username = typeof poster?.username === "string" ? poster.username : "";
+                    return [firstName, username].filter(Boolean).join(" ").trim();
+                },
+                cell: ({ row }) => {
+                    const poster = row.original.first_poster as GenericRecord | undefined;
+                    const displayName =
+                        typeof poster?.first_name === "string" && poster.first_name.trim().length > 0
+                            ? poster.first_name
+                            : typeof poster?.username === "string"
+                                ? poster.username
+                                : "Unknown";
+                    const username =
+                        typeof poster?.username === "string" && poster.username.trim().length > 0
+                            ? poster.username
+                            : "—";
+                    return (
+                        <div className="flex w-[160px] flex-col items-center">
+                            <span className="truncate text-sm font-medium">{displayName}</span>
+                            {username !== "—" ? (
+                                <Badge
+                                    variant="secondary"
+                                    className="w-fit text-[10px] font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                                >
+                                    @{username}
+                                </Badge>
+                            ) : (
+                                <span className="text-xs text-muted-foreground">@{username}</span>
+                            )}
+                        </div>
+                    );
+                },
+                filterFn: "includesString",
+            },
+            {
+                accessorKey: "first_mcap",
+                header: () => <div className="w-[120px] text-right">First Called</div>,
+                cell: ({ row }) => {
+                    const rawFirst = toNumber(row.original.first_mcap);
+                    const rawAth = toNumber(row.original.ath_mcap);
+                    const rawLast = toNumber(row.original.last_mcap);
+                    const firstValue = isFiniteNumber(rawFirst) ? rawFirst : null;
+                    const athValue = isFiniteNumber(rawAth) ? rawAth : null;
+                    const lastValue = isFiniteNumber(rawLast) ? rawLast : null;
+                    const canProject = firstValue !== null && athValue !== null && athValue > 0;
+                    const rowId = `${row.original.token_address}-${row.original.group_id}`;
+                    const isActive = activeScrubRow === rowId;
+                    const liveValue = (() => {
+                        if (!canProject || firstValue === null || athValue === null) return null;
+                        const base = lastValue ?? firstValue;
+                        if (base === null) return null;
+                        return Math.max(0, Math.min(athValue, base));
+                    })();
+                    const initialPercentage = liveValue !== null && athValue
+                        ? Math.max(0, Math.min(100, (liveValue / athValue) * 100))
+                        : 0;
+
+                    const openOverlay = (target: HTMLElement) => {
+                        if (!canProject || firstValue === null || athValue === null) return;
+                        const rect = target.getBoundingClientRect();
+                        const overlayWidth = 380; // matches the fixed width in the overlay div
+                        const overlayHeight = 160; // approximate height of the overlay (adjust this to control top positioning)
+                        const padding = 16; // padding from viewport edges
+                        const spacingBelow = 8; // spacing when overlay appears below button
+                        const spacingAbove = 8; // spacing when overlay appears above button
+
+                        // Calculate position relative to viewport (fixed positioning, no scroll offset needed)
+                        let left = rect.left + rect.width / 2;
+                        let top = rect.bottom + spacingBelow;
+
+                        // Check if overlay would go off the right edge
+                        const rightEdge = left + overlayWidth / 2;
+                        if (rightEdge > window.innerWidth - padding) {
+                            left = window.innerWidth - padding - overlayWidth / 2;
+                        }
+
+                        // Check if overlay would go off the left edge
+                        const leftEdge = left - overlayWidth / 2;
+                        if (leftEdge < padding) {
+                            left = padding + overlayWidth / 2;
+                        }
+
+                        // Check if overlay would go off the bottom edge
+                        const bottomEdge = rect.bottom + overlayHeight + spacingBelow;
+                        if (bottomEdge > window.innerHeight) {
+                            // Position above the button instead
+                            top = rect.top - overlayHeight - spacingAbove;
+                        }
+
+                        setScrubOverlay({
+                            rowId,
+                            left,
+                            top,
+                        });
+                    };
+
+                    const handleActivate = (e?: ReactMouseEvent<HTMLElement>) => {
+                        if (!canProject || firstValue === null || athValue === null) return;
+                        setActiveScrubRow(rowId);
+                        const init = Number.isFinite(initialPercentage) ? initialPercentage : 0;
+                        setScrubVisual(init);
+                        if (e) openOverlay(e.currentTarget as HTMLElement);
+                    };
+
+                    if (firstValue === null) {
+                        return (
+                            <div className="relative w-[120px] text-right">
+                                <span className="block tabular-nums font-medium text-muted-foreground">—</span>
+                            </div>
+                        );
+                    }
+
+                    const formatted = formatMcap(firstValue);
+
+                    return (
+                        <div className="relative w-[120px] text-right">
+                            {canProject ? (
+                                <button
+                                    type="button"
+                                    className="inline-flex w-full justify-end focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500/40"
+                                    onClick={(e) => handleActivate(e)}
+                                    onMouseEnter={(e) => handleActivate(e)}
+                                    data-active={isActive ? "true" : undefined}
+                                    data-row-id={rowId}
+                                >
+                                    <span
+                                        className="interactive-shimmer block text-right tabular-nums font-medium"
+                                    >
+                                        {formatted}
+                                    </span>
+                                </button>
+                            ) : (
+                                <span
+                                    className="interactive-shimmer block tabular-nums font-medium pointer-events-none select-text"
+                                >
+                                    {formatted}
+                                </span>
+                            )}
+                        </div>
+                    );
+                },
+            },
+            {
+                accessorKey: "ath_mcap",
+                header: () => <div className="w-[160px] text-right">ATH</div>,
+                cell: ({ row }) => {
+                    const ath = toNumber(row.original.ath_mcap);
+                    const last = toNumber(row.original.last_mcap);
+
+                    // Calculate progress percentage (how close last_mcap is to ATH)
+                    const progressPct = ath && last && ath > 0
+                        ? Math.min(100, (last / ath) * 100)
+                        : null;
+
+                    const isAtOrAboveATH = progressPct !== null && progressPct >= 99.5;
+
+                    return (
+                        <div className="flex w-[160px] flex-col gap-1 items-end">
+                            <span className="tabular-nums font-medium text-green-600 dark:text-green-400">
+                                {formatMcap(row.original.ath_mcap)}
+                            </span>
+                            {progressPct !== null && (
+                                <div className="flex flex-col gap-0.5">
+                                    <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                                        {/* Glow underlay */}
+                                        <div
+                                            className="absolute top-1/2 -translate-y-1/2 h-3 rounded-full"
+                                            style={{
+                                                width: `${progressPct}%`,
+                                                background: 'linear-gradient(to right, rgb(239, 68, 68) 0%, rgb(251, 146, 60) 25%, rgb(250, 204, 21) 50%, rgb(163, 230, 53) 75%, rgb(34, 197, 94) 100%)',
+                                                filter: 'blur(6px)',
+                                                opacity: 0.35,
+                                                transition: 'width 500ms ease-in-out'
+                                            }}
+                                        />
+                                        {/* Foreground progress bar */}
+                                        <div
+                                            className="relative h-full rounded-full"
+                                            style={{
+                                                width: `${progressPct}%`,
+                                                background: 'linear-gradient(to right, rgb(239, 68, 68) 0%, rgb(251, 146, 60) 25%, rgb(250, 204, 21) 50%, rgb(163, 230, 53) 75%, rgb(34, 197, 94) 100%)',
+                                                transition: 'width 500ms ease-in-out'
+                                            }}
+                                        />
+                                    </div>
+                                    <span className="text-[10px] text-muted-foreground tabular-nums">
+                                        {isAtOrAboveATH ? "At ATH" : `${progressPct?.toFixed(0)}% of ATH`}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    );
+                },
+            },
+            {
+                accessorKey: "post_count",
+                header: () => <div className="w-[90px] text-center">Posts</div>,
+                cell: ({ row }) => {
+                    const count = toNumber(row.original.post_count) ?? 0;
+
+                    // Percentile-based labeling with small-sample fallback
+                    let tier: string;
+                    let tierColor: string;
+
+                    if (count === 0) {
+                        tier = "None";
+                        tierColor = "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
+                    } else if (postTiers.sampleSize < 20) {
+                        // Absolute buckets for small datasets
+                        if (count === 1) {
+                            tier = "Single";
+                            tierColor = "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
+                        } else if (count <= 3) {
+                            tier = "Few";
+                            tierColor = "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
+                        } else if (count <= 7) {
+                            tier = "Some";
+                            tierColor = "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+                        } else {
+                            tier = "Many";
+                            tierColor = "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
+                        }
+                    } else {
+                        // Percentile mapping
+                        if (count >= postTiers.p90) {
+                            tier = "Top 10%";
+                            tierColor = "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+                        } else if (count >= postTiers.p75) {
+                            tier = "Top 25%";
+                            tierColor = "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
+                        } else if (count < postTiers.p15) {
+                            tier = "Bottom 15%";
+                            tierColor = "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
+                        } else {
+                            tier = "Mid 50%";
+                            tierColor = "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
+                        }
+                    }
+
+                    return (
+                        <div className="flex w-[90px] flex-col items-center gap-1 min-w-[60px]">
+                            <Badge
+                                variant="secondary"
+                                className={cn(
+                                    "text-[10px] font-semibold px-2 py-0.5",
+                                    tierColor
+                                )}
+                            >
+                                {tier}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground tabular-nums">
+                                {formatNumber(count)}
+                            </span>
+                        </div>
+                    );
+                },
+            },
+            {
+                accessorKey: "last_updated",
+                header: () => <div className="w-[150px] text-right">Last Updated</div>,
+                cell: ({ row }) => (
+                    <div className="w-[150px] text-right">
+                        <span className="whitespace-nowrap text-xs text-muted-foreground">
+                            {formatDate(row.original.last_updated ?? row.original.updatedAt)}
+                        </span>
+                    </div>
+                ),
+            },
+            {
+                id: "actions",
+                header: () => <div className="w-[56px]"></div>,
+                cell: ({ row }) => (
+                    <div className="w-[56px] flex justify-center">
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0"
+                            onClick={() => handleViewDetails("Token Call Details", row.original)}
+                        >
+                            <EyeIcon className="h-4 w-4" />
+                            <span className="sr-only">View token call</span>
+                        </Button>
+                    </div>
+                ),
+            },
+        ];
+    }, [handleViewDetails, postTiers, activeScrubRow]);
+
+    // Calculate percentiles for group monthly total posts (for percentile-based chips)
+    const groupMonthlyPostTiers = useMemo(() => {
+        const totals = liveGroupMonthly
+            .map(group => {
+                const tokens = group.tokens as Array<{ post_count?: number }> | undefined;
+                return Array.isArray(tokens)
+                    ? tokens.reduce((sum, t) => sum + (toNumber(t.post_count) || 0), 0)
+                    : 0;
+            })
+            .filter(n => n > 0)
+            .sort((a, b) => a - b);
+
+        const getPct = (p: number) => totals.length ? (totals[Math.floor(totals.length * p)] || 0) : 0;
+
+        return {
+            p10: getPct(0.10),
+            p15: getPct(0.15),
+            p25: getPct(0.25),
+            p50: getPct(0.50),
+            p75: getPct(0.75),
+            p90: getPct(0.90),
+            sampleSize: totals.length,
+        };
+    }, [liveGroupMonthly]);
+
+    const userColumns = useMemo<ColumnDef<GenericRecord, unknown>[]>(() => {
+        return [
+            {
+                id: "user",
+                header: () => <div className="w-[180px] text-left">User</div>,
+                accessorFn: (row) => {
+                    const firstName = typeof row.first_name === "string" ? row.first_name : "";
+                    const username = typeof row.username === "string" ? row.username : "";
+                    return [firstName, username].filter(Boolean).join(" ").trim();
+                },
+                cell: ({ row }) => {
+                    const firstName =
+                        typeof row.original.first_name === "string"
+                            ? row.original.first_name
+                            : "Unknown";
+                    const username =
+                        typeof row.original.username === "string" && row.original.username.trim().length > 0
+                            ? row.original.username
+                            : "—";
+                    return (
+                        <div className="flex w-[180px] flex-col gap-1">
+                            <span className="font-medium">{firstName}</span>
+                            {username !== "—" ? (
+                                <Badge
+                                    variant="secondary"
+                                    className="w-fit text-[10px] font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 ml-1"
+                                >
+                                    @{username}
+                                </Badge>
+                            ) : (
+                                <span className="text-xs text-muted-foreground ml-1">@{username}</span>
+                            )}
+                        </div>
+                    );
+                },
+                filterFn: "includesString",
+            },
+            {
+                accessorKey: "user_id",
+                header: () => <div className="w-[140px] text-left">User ID</div>,
+                cell: ({ row }) => (
+                    <div className="w-[140px] text-left">
+                        {typeof row.original.user_id === "string" && row.original.user_id !== "—" ? (
+                            <Badge
+                                variant="secondary"
+                                className="w-fit font-mono text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                            >
+                                {row.original.user_id}
+                            </Badge>
+                        ) : (
+                            <span className="font-mono text-xs text-muted-foreground">—</span>
+                        )}
+                    </div>
+                ),
+            },
+            {
+                accessorKey: "is_active",
+                header: () => <div className="w-[100px] text-center">Status</div>,
+                cell: ({ row }) => {
+                    const isActive = row.original.is_active === true;
+                    const statusColor = isActive
+                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                        : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
+
+                    return (
+                        <div className="w-[100px] flex justify-center">
+                            <Badge
+                                variant="secondary"
+                                className={cn(
+                                    "text-[10px] font-semibold px-2 py-0.5 w-fit",
+                                    statusColor
+                                )}
+                            >
+                                {isActive ? "Active" : "Inactive"}
+                            </Badge>
+                        </div>
+                    );
+                },
+            },
+            {
+                accessorKey: "joined_at",
+                header: () => <div className="w-[150px] text-right">Joined</div>,
+                cell: ({ row }) => (
+                    <div className="w-[150px] text-right">
+                        <span className="whitespace-nowrap text-xs text-muted-foreground">
+                            {formatDate(row.original.joined_at)}
+                        </span>
+                    </div>
+                ),
+            },
+            {
+                accessorKey: "updatedAt",
+                header: () => <div className="w-[150px] text-right">Last Updated</div>,
+                cell: ({ row }) => (
+                    <div className="w-[150px] text-right">
+                        <span className="whitespace-nowrap text-xs text-muted-foreground">
+                            {formatDate(row.original.updatedAt)}
+                        </span>
+                    </div>
+                ),
+            },
+            {
+                id: "actions",
+                header: () => <div className="w-[56px]"></div>,
+                cell: ({ row }) => (
+                    <div className="w-[56px] flex justify-center">
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0"
+                            onClick={() => handleViewDetails("User Details", row.original)}
+                        >
+                            <EyeIcon className="h-4 w-4" />
+                            <span className="sr-only">View user details</span>
+                        </Button>
+                    </div>
+                ),
+            },
+        ];
+    }, [handleViewDetails]);
+
+    const groupMonthlyColumns = useMemo<ColumnDef<GenericRecord, unknown>[]>(() => {
+        return [
+            {
+                accessorKey: "group_id",
+                header: () => <div className="w-[140px] text-left">Group ID</div>,
+                cell: ({ row }) => (
+                    <div className="w-[140px] text-left">
+                        <span className="font-mono text-xs">
+                            {typeof row.original.group_id === "string"
+                                ? row.original.group_id
+                                : "—"}
+                        </span>
+                    </div>
+                ),
+            },
+            {
+                accessorKey: "month",
+                header: () => <div className="w-[120px] text-left">Month</div>,
+                cell: ({ row }) => (
+                    <div className="w-[120px] text-left">
+                        <span className="font-medium">
+                            {typeof row.original.month === "string" ? row.original.month : "—"}
+                        </span>
+                    </div>
+                ),
+            },
+            {
+                accessorKey: "token_count",
+                header: () => <div className="w-[110px] text-center">Token Count</div>,
+                cell: ({ row }) => {
+                    const tokens = row.original.tokens as Array<{ post_count?: number }> | undefined;
+                    const count = Array.isArray(tokens) ? tokens.length : 0;
+
+                    // Calculate diversity: Herfindahl-Hirschman Index (HHI) concentration
+                    let diversity: string;
+                    let diversityColor: string;
+
+                    if (count === 0) {
+                        diversity = "None";
+                        diversityColor = "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
+                    } else if (count === 1) {
+                        diversity = "Single";
+                        diversityColor = "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400";
+                    } else {
+                        const postCounts = tokens?.map(t => toNumber(t.post_count) || 0) || [];
+                        const totalPosts = postCounts.reduce((sum, c) => sum + c, 0);
+
+                        if (totalPosts === 0) {
+                            diversity = "Balanced";
+                            diversityColor = "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+                        } else {
+                            // Calculate HHI: sum of squared market shares (0-1 scale)
+                            const hhi = postCounts.reduce((sum, c) => {
+                                const share = c / totalPosts;
+                                return sum + (share * share);
+                            }, 0);
+
+                            // HHI interpretation:
+                            // < 0.15: Balanced (many tokens with similar activity)
+                            // 0.15-0.25: Mixed (moderate concentration)
+                            // > 0.25: Concentrated (few tokens dominate)
+                            if (hhi < 0.15) {
+                                diversity = "Balanced";
+                                diversityColor = "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+                            } else if (hhi < 0.25) {
+                                diversity = "Mixed";
+                                diversityColor = "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
+                            } else {
+                                diversity = "Focused";
+                                diversityColor = "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
+                            }
+                        }
+                    }
+
+                    return (
+                        <div className="flex w-[110px] flex-col items-center gap-1">
+                            <Badge
+                                variant="secondary"
+                                className={cn(
+                                    "text-[10px] font-semibold px-2 py-0.5",
+                                    diversityColor
+                                )}
+                            >
+                                {diversity}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground tabular-nums">
+                                {formatNumber(count)}
+                            </span>
+                        </div>
+                    );
+                },
+            },
+            {
+                accessorKey: "total_posts",
+                header: () => <div className="w-[100px] text-center">Total Posts</div>,
+                cell: ({ row }) => {
+                    const tokens = row.original.tokens as Array<{ post_count?: number }> | undefined;
+                    const total = Array.isArray(tokens)
+                        ? tokens.reduce((sum, t) => sum + (toNumber(t.post_count) || 0), 0)
+                        : 0;
+
+                    let tier: string;
+                    let tierColor: string;
+
+                    if (total === 0) {
+                        tier = "None";
+                        tierColor = "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
+                    } else if (groupMonthlyPostTiers.sampleSize < 20) {
+                        if (total === 1) {
+                            tier = "Single";
+                            tierColor = "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
+                        } else if (total <= 3) {
+                            tier = "Few";
+                            tierColor = "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
+                        } else if (total <= 7) {
+                            tier = "Some";
+                            tierColor = "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+                        } else {
+                            tier = "Many";
+                            tierColor = "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
+                        }
+                    } else {
+                        if (total >= groupMonthlyPostTiers.p90) {
+                            tier = "Top 10%";
+                            tierColor = "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+                        } else if (total >= groupMonthlyPostTiers.p75) {
+                            tier = "Top 25%";
+                            tierColor = "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
+                        } else if (total < groupMonthlyPostTiers.p15) {
+                            tier = "Bottom 15%";
+                            tierColor = "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
+                        } else {
+                            tier = "Mid 50%";
+                            tierColor = "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
+                        }
+                    }
+
+                    return (
+                        <div className="flex w-[100px] flex-col items-center gap-1">
+                            <Badge
+                                variant="secondary"
+                                className={cn(
+                                    "text-[10px] font-semibold px-2 py-0.5",
+                                    tierColor
+                                )}
+                            >
+                                {tier}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground tabular-nums">
+                                {formatNumber(total)}
+                            </span>
+                        </div>
+                    );
+                },
+            },
+            {
+                accessorKey: "updatedAt",
+                header: () => <div className="w-[150px] text-right">Last Updated</div>,
+                cell: ({ row }) => (
+                    <div className="w-[150px] text-right">
+                        <span className="whitespace-nowrap text-xs text-muted-foreground">
+                            {formatDate(row.original.updatedAt ?? row.original.last_updated)}
+                        </span>
+                    </div>
+                ),
+            },
+            {
+                id: "actions",
+                header: () => <div className="w-[56px]"></div>,
+                cell: ({ row }) => (
+                    <div className="w-[56px] flex justify-center">
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0"
+                            onClick={() => handleViewDetails("Group Monthly Details", row.original)}
+                        >
+                            <EyeIcon className="h-4 w-4" />
+                            <span className="sr-only">View group monthly details</span>
+                        </Button>
+                    </div>
+                ),
+            },
+        ];
+    }, [handleViewDetails, groupMonthlyPostTiers]);
+
+    const tabIndex = Math.max(TAB_ORDER.indexOf(activeTab), 0);
+
+    return (
+        <>
+            <Tabs
+                value={activeTab}
+                onValueChange={(value) => setActiveTab(value as TabKey)}
+                className="w-full"
+            >
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <h2 className={`text-sm font-semibold ${pressStart.className}`}>Explore Data</h2>
+                    <TabsList className="relative flex w-full max-w-md gap-2 -mb-[10px] lg:ml-auto">
+                        <span
+                            className="pointer-events-none absolute bottom-0 left-0 h-full rounded-t-lg border border-b-0 border-border bg-muted/20 shadow-sm transition-all duration-500 ease-in-out"
+                            style={{
+                                transform: `translateX(calc(${tabIndex * 100}% + ${tabIndex * 8}px))`,
+                                width: `calc(${100 / TAB_ORDER.length}% - ${(TAB_ORDER.length - 1) * 8 / TAB_ORDER.length}px)`,
+                                transitionDelay: '75ms'
+                            }}
+                            aria-hidden="true"
+                        />
+                        <TabsTrigger
+                            value="token-calls"
+                            className="relative z-10 flex-1 border-transparent px-2 py-2 text-xs sm:px-4 sm:text-sm font-medium text-muted-foreground transition-colors duration-300 delay-100 data-[state=active]:text-foreground"
+                        >
+                            Token Calls
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="users"
+                            className="relative z-10 flex-1 border-transparent px-2 py-2 text-xs sm:px-4 sm:text-sm font-medium text-muted-foreground transition-colors duration-300 delay-100 data-[state=active]:text-foreground"
+                        >
+                            Users
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="group-monthly"
+                            className="relative z-10 flex-1 border-transparent px-2 py-2 text-xs sm:px-4 sm:text-sm font-medium text-muted-foreground transition-colors duration-300 delay-100 data-[state=active]:text-foreground"
+                        >
+                            Group Monthly
+                        </TabsTrigger>
+                    </TabsList>
+                </div>
+
+                <TabsContent value="token-calls" className="mt-0">
+                    <div className="rounded-b-lg border border-border bg-card">
+                        <div className="flex flex-col gap-3 border-b bg-muted/20 px-6 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                            <div>
+                                <h3 className={`text-sm font-semibold ${pressStart.className}`}>Token Calls</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    Most recent token activity with live updates every 10 seconds.
+                                </p>
+                            </div>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => downloadCSV(liveCalls, "token-calls.csv")}
+                                disabled={!liveCalls.length}
+                                className="gap-2"
+                                aria-label="Download token calls as CSV"
+                            >
+                                <DownloadIcon className="h-4 w-4" />
+                                Export CSV
+                            </Button>
+                        </div>
+                        <div className="p-6 pt-4">
+                            <DataTable<GenericRecord>
+                                data={liveCalls}
+                                columns={tokenColumns}
+                                searchColumn="token"
+                                searchPlaceholder="Search tokens, symbols, or addresses..."
+                                emptyMessage="No token call data available."
+                            />
+                        </div>
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="users" className="mt-0">
+                    <div className="rounded-b-lg border border-border bg-card">
+                        <div className="flex flex-col gap-3 border-b bg-muted/20 px-6 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                            <div>
+                                <h3 className={`text-sm font-semibold ${pressStart.className}`}>Users</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    Latest users interacting with the bot and their status.
+                                </p>
+                            </div>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => downloadCSV(liveUsers, "users.csv")}
+                                disabled={!liveUsers.length}
+                                className="gap-2"
+                                aria-label="Download users as CSV"
+                            >
+                                <DownloadIcon className="h-4 w-4" />
+                                Export CSV
+                            </Button>
+                        </div>
+                        <div className="p-6 pt-4">
+                            <DataTable<GenericRecord>
+                                data={liveUsers}
+                                columns={userColumns}
+                                searchColumn="user"
+                                searchPlaceholder="Search names or usernames..."
+                                emptyMessage="No users found."
+                            />
+                        </div>
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="group-monthly" className="mt-0">
+                    <div className="rounded-b-lg border border-border bg-card">
+                        <div className="flex flex-col gap-3 border-b bg-muted/20 px-6 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                            <div>
+                                <h3 className={`text-sm font-semibold ${pressStart.className}`}>Group Monthly Tokens</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    Aggregated monthly metrics per group with token counts.
+                                </p>
+                            </div>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => downloadCSV(liveGroupMonthly, "group-monthly-tokens.csv")}
+                                disabled={!liveGroupMonthly.length}
+                                className="gap-2"
+                                aria-label="Download group monthly tokens as CSV"
+                            >
+                                <DownloadIcon className="h-4 w-4" />
+                                Export CSV
+                            </Button>
+                        </div>
+                        <div className="p-6 pt-4">
+                            <DataTable<GenericRecord>
+                                data={liveGroupMonthly}
+                                columns={groupMonthlyColumns}
+                                searchColumn="group_id"
+                                searchPlaceholder="Search group IDs..."
+                                emptyMessage="No group monthly tokens found."
+                            />
+                        </div>
+                    </div>
+                </TabsContent>
+            </Tabs>
+
+            {/* Scrub overlay (fixed, outside table to avoid clipping) */}
+            {scrubOverlay && (
+                <div
+                    ref={overlayRef}
+                    className="fixed z-[100] w-[380px] max-w-[calc(100vw-2rem)] -translate-x-1/2 bg-card border border-yellow-500/20 border-dashed rounded-lg p-3 shadow-xl"
+                    style={{
+                        left: `${scrubOverlay.left}px`,
+                        top: `${scrubOverlay.top}px`,
+                        maxHeight: 'calc(100vh - 1rem)',
+                        overflowY: 'auto'
+                    }}
+                    onMouseLeave={() => { setActiveScrubRow(null); setScrubOverlay(null); }}
+                >
+                    <div className="flex justify-between items-center mb-3">
+                        <span className="text-xs font-medium">Compare Range</span>
+                        <button
+                            className="text-xs text-muted-foreground hover:text-foreground"
+                            onClick={() => { setActiveScrubRow(null); setScrubOverlay(null); }}
+                        >
+                            ×
+                        </button>
+                    </div>
+                    <div className="space-y-4">
+                        {/* Custom multicolor interactive progress bar */}
+                        {(() => {
+                            const rawFirst = toNumber(activeRecord?.first_mcap);
+                            const rawAth = toNumber(activeRecord?.ath_mcap);
+                            const rawLast = toNumber(activeRecord?.last_mcap);
+                            const safeFirst = isFiniteNumber(rawFirst) ? rawFirst : 0;
+                            const safeAth = isFiniteNumber(rawAth) && rawAth > 0 ? rawAth : 0;
+                            if (!activeRecord || safeAth === 0) {
+                                return (
+                                    <div className="text-xs text-muted-foreground">
+                                        Not enough data for projection.
+                                    </div>
+                                );
+                            }
+                            const rawLive = isFiniteNumber(rawLast) ? rawLast : safeFirst;
+                            const safeLiveCurrent = safeAth > 0
+                                ? Math.max(0, Math.min(safeAth, rawLive))
+                                : rawLive;
+                            const scrubProgress = Math.max(0, Math.min(100, scrubVisual));
+                            const projected = Math.max(
+                                0,
+                                Math.min(safeAth, (safeAth * scrubProgress) / 100),
+                            );
+                            const xToAth = projected > 0 ? safeAth / projected : 1;
+                            const firstMarkerLeft = safeAth > 0
+                                ? Math.max(0, Math.min(100, (safeFirst / safeAth) * 100))
+                                : 0;
+                            const liveMarkerLeft = safeAth > 0
+                                ? Math.max(0, Math.min(100, (safeLiveCurrent / safeAth) * 100))
+                                : 0;
+
+                            const handleTrackClick = (e: React.MouseEvent<HTMLDivElement>) => {
+                                if ((e.target as HTMLElement).classList.contains('scrub-thumb')) return;
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                const clickX = e.clientX - rect.left;
+                                const percentage = Math.max(0, Math.min(100, (clickX / rect.width) * 100));
+                                setJustClicked(true);
+                                if (clickDelayRef.current) clearTimeout(clickDelayRef.current);
+                                clickDelayRef.current = window.setTimeout(() => {
+                                    setScrubVisual(percentage);
+                                    setJustClicked(false);
+                                    clickDelayRef.current = null;
+                                }, 180);
+                            };
+
+                            const handleThumbMouseDown = (e: React.MouseEvent) => {
+                                e.stopPropagation();
+                                if (clickDelayRef.current) { clearTimeout(clickDelayRef.current); clickDelayRef.current = null; }
+                                setIsDragging(true);
+                                setJustClicked(false);
+
+                                const trackRect = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect();
+
+                                const handleMouseMove = (moveEvent: MouseEvent) => {
+                                    const moveX = moveEvent.clientX - trackRect.left;
+                                    const percentage = Math.max(0, Math.min(100, (moveX / trackRect.width) * 100));
+                                    setScrubVisual(percentage);
+                                };
+
+                                const handleMouseUp = () => {
+                                    setIsDragging(false);
+                                    document.removeEventListener('mousemove', handleMouseMove);
+                                    document.removeEventListener('mouseup', handleMouseUp);
+                                };
+
+                                document.addEventListener('mousemove', handleMouseMove);
+                                document.addEventListener('mouseup', handleMouseUp);
+                            };
+
+                            return (
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center text-[10px] text-muted-foreground mb-2">
+                                        <span>Projection</span>
+                                        <span
+                                            className="font-mono tabular-nums text-sm font-bold text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded ring-1 ring-green-500/30 bg-green-500/10"
+                                            style={{ textShadow: '0 0 6px rgba(34,197,94,0.3)' }}
+                                        >
+                                            {xToAth.toFixed(1)}× to ATH
+                                        </span>
+                                    </div>
+                                    {/* Custom interactive track */}
+                                    <div
+                                        className="relative h-2 w-full mt-3 rounded-full bg-muted cursor-pointer select-none"
+                                        onClick={handleTrackClick}
+                                    >
+                                        {/* Background muted layer */}
+                                        <div className="absolute inset-0 bg-muted/40 rounded-full z-0" />
+
+                                        {/* Multicolor gradient fill */}
+                                        <div
+                                            className="absolute h-full rounded-full z-10"
+                                            style={{
+                                                width: `${scrubProgress}%`,
+                                                background: 'linear-gradient(to right, rgb(239, 68, 68) 0%, rgb(251, 146, 60) 25%, rgb(250, 204, 21) 50%, rgb(163, 230, 53) 75%, rgb(34, 197, 94) 100%)',
+                                                transitionProperty: 'width',
+                                                transitionDuration: isDragging ? '40ms' : '280ms',
+                                                transitionTimingFunction: isDragging ? 'linear' : 'cubic-bezier(.22,.61,.36,1)',
+                                                transitionDelay: (!isDragging && justClicked) ? '120ms' : '0ms',
+                                                willChange: 'width'
+                                            }}
+                                        />
+
+                                        {/* First Called marker */}
+                                        <div
+                                            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/80 bg-white shadow-lg z-20 pointer-events-none"
+                                            style={{
+                                                width: '10px',
+                                                height: '10px',
+                                                left: `${firstMarkerLeft}%`,
+                                                boxShadow: '0 0 8px rgba(255,255,255,0.6)',
+                                            }}
+                                        />
+
+                                        {/* Live current marker */}
+                                        <div
+                                            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-yellow-200/70 bg-yellow-300 shadow-lg z-25 pointer-events-none"
+                                            style={{
+                                                width: '10px',
+                                                height: '10px',
+                                                left: `${liveMarkerLeft}%`,
+                                                boxShadow: '0 0 8px rgba(250,204,21,0.55)',
+                                                opacity: Math.abs(liveMarkerLeft - scrubProgress) < 0.5 ? 0 : 1,
+                                                transition: 'opacity 150ms ease',
+                                            }}
+                                        />
+
+                                        {/* ATH marker */}
+                                        <div
+                                            className="absolute top-1/2 right-0 -translate-y-1/2 w-1 h-4 bg-green-500 rounded-full shadow-lg z-20 pointer-events-none"
+                                            style={{ boxShadow: '0 0 8px rgba(34, 197, 94, 0.7)' }}
+                                        />
+
+                                        {/* Draggable thumb */}
+                                        <div
+                                            className="scrub-thumb absolute w-4 h-4 rounded-full border-2 shadow-lg z-30 cursor-grab active:cursor-grabbing"
+                                            style={{
+                                                left: `${scrubProgress}%`,
+                                                top: '50%',
+                                                background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
+                                                borderColor: '#eab308',
+                                                borderStyle: 'dashed',
+                                                transform: `translate(-50%, -50%) scale(${isDragging ? 1.15 : 1})`,
+                                                transitionProperty: isDragging ? 'transform, box-shadow' : 'left, transform, box-shadow',
+                                                transitionDuration: isDragging ? '100ms, 100ms' : '280ms, 100ms, 100ms',
+                                                transitionTimingFunction: isDragging ? 'ease, ease' : 'cubic-bezier(.22,.61,.36,1), ease, ease',
+                                                transitionDelay: isDragging ? '0ms, 0ms' : `${justClicked ? '120ms' : '0ms'}, 0ms, 0ms`,
+                                                boxShadow: isDragging
+                                                    ? '0 4px 10px rgba(0,0,0,0.25), 0 0 0 3px rgba(234,179,8,0.35), 0 0 10px rgba(234,179,8,0.4)'
+                                                    : '0 2px 6px rgba(0,0,0,0.2), 0 0 0 2px rgba(234,179,8,0.25), 0 0 6px rgba(234,179,8,0.35)'
+                                            }}
+                                            onMouseDown={handleThumbMouseDown}
+                                        />
+                                    </div>
+                                </div>
+                            );
+                        })()}
+                        {(() => {
+                            const rawFirst = toNumber(activeRecord?.first_mcap);
+                            const rawAth = toNumber(activeRecord?.ath_mcap);
+                            const rawLast = toNumber(activeRecord?.last_mcap);
+                            const safeFirst = isFiniteNumber(rawFirst) ? rawFirst : 0;
+                            const safeAth = isFiniteNumber(rawAth) && rawAth > 0 ? rawAth : 0;
+                            if (!activeRecord || safeAth === 0) {
+                                return null;
+                            }
+                            const rawLive = isFiniteNumber(rawLast) ? rawLast : safeFirst;
+                            const safeLiveCurrent = safeAth > 0
+                                ? Math.max(0, Math.min(safeAth, rawLive))
+                                : rawLive;
+                            const scrubProgress = Math.max(0, Math.min(100, scrubVisual));
+                            const projected = Math.max(
+                                0,
+                                Math.min(safeAth, (safeAth * scrubProgress) / 100),
+                            );
+                            const liftNeeded = projected > 0 ? ((safeAth / projected - 1) * 100) : 0;
+                            const fromFirst = safeFirst > 0 ? ((projected / safeFirst - 1) * 100) : 0;
+                            return (
+                                <>
+                                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
+                                        <span className="inline-flex items-center gap-1">
+                                            <span>First:</span>
+                                            <span
+                                                className="interactive-shimmer inline-flex tabular-nums font-semibold pointer-events-none select-text"
+                                            >
+                                                {formatMcap(safeFirst)}
+                                            </span>
+                                        </span>
+                                        <span className="opacity-50">|</span>
+                                        <span>Current: {formatMcap(safeLiveCurrent)}</span>
+                                        <span className="opacity-50">|</span>
+                                        <span>ATH: {formatMcap(safeAth)}</span>
+                                    </div>
+                                    <div className="flex items-center justify-center gap-3 text-[11px]">
+                                        <span>Lift needed: <span className="font-semibold text-green-600 dark:text-green-400" style={{ textShadow: '0 0 6px rgba(34,197,94,0.28)' }}>{liftNeeded.toFixed(1)}%</span></span>
+                                        <span className="h-3 w-px bg-border/70" />
+                                        <span>From First: <span className="font-semibold text-blue-600 dark:text-blue-400" style={{ textShadow: '0 0 6px rgba(59,130,246,0.28)' }}>{fromFirst.toFixed(1)}%</span></span>
+                                    </div>
+                                </>
+                            );
+                        })()}
+                    </div>
+                </div>
+            )}
+
+            <Sheet open={open} onOpenChange={setOpen}>
+                <SheetContent side="right" className="sm:max-w-2xl max-h-screen flex flex-col">
+                    <SheetHeader>
+                        <SheetTitle>{selected?.title ?? "Details"}</SheetTitle>
+                    </SheetHeader>
+                    <div className="flex-1 p-4 pt-2 overflow-hidden flex flex-col">
+                        <div className="sticky top-0 flex justify-end gap-2 pb-3 z-10">
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleCopy(jsonString)}
+                                disabled={!jsonString}
+                                className="h-7 gap-2 px-2"
+                                aria-label={copied ? "Copied entire JSON" : "Copy entire JSON"}
+                            >
+                                {copied ? (
+                                    <>
+                                        <CheckIcon className="h-3.5 w-3.5" />
+                                        <span className="hidden sm:inline text-xs">Copied</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <CopyIcon className="h-3.5 w-3.5" />
+                                        <span className="hidden sm:inline text-xs">Copy All</span>
+                                    </>
+                                )}
+                            </Button>
+                        </div>
+                        <div className="flex-1 overflow-auto">
+                            {selected && (
+                                <JsonTreeViewer
+                                    data={selected.data}
+                                    onCopy={handleJsonValueCopy}
+                                />
+                            )}
+                        </div>
+                    </div>
+                </SheetContent>
+            </Sheet>
+        </>
+    );
 }

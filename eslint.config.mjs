@@ -21,16 +21,20 @@ const eslintConfig = [
         ],
     },
     {
+        files: ["src/components/effects/**/*.tsx", "src/components/effects/**/*.ts"],
         rules: {
             "@typescript-eslint/no-explicit-any": "off",
-            "@typescript-eslint/no-unused-vars": "warn",
-            "@next/next/no-img-element": "warn",
         },
     },
     {
-        files: ["src/components/effects/PixelBlast.tsx"],
         rules: {
-            "@typescript-eslint/no-explicit-any": "off",
+            "@typescript-eslint/no-unused-vars": ["warn", {
+                "argsIgnorePattern": "^_",
+                "varsIgnorePattern": "^_"
+            }],
+            "@next/next/no-img-element": "warn",
+            "react-hooks/exhaustive-deps": "warn",
+            "prefer-const": "warn",
         },
     },
 ];

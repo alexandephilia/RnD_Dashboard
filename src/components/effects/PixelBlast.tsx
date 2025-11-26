@@ -24,6 +24,9 @@ type PixelBlastProps = {
     liquidStrength?: number;
     liquidRadius?: number;
     liquidWobbleSpeed?: number;
+    wave?: boolean;
+    waveStrength?: number;
+    waveFrequency?: number;
     transparent?: boolean;
     className?: string;
     style?: React.CSSProperties;
@@ -56,6 +59,9 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
     liquidStrength = 0.08,
     liquidRadius = 1.2,
     liquidWobbleSpeed = 4.5,
+    wave = false,
+    waveStrength = 20,
+    waveFrequency = 0.03,
     transparent = false,
     className,
     style,
@@ -257,7 +263,7 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
 
         // Create touch texture for liquid effect
         let touchTexture: any = null;
-        if (liquid) {
+        if (liquid || wave) {
             touchTexture = createTouchTexture();
             if (touchTexture) {
                 touchTexture.setRadiusScale(liquidRadius);
@@ -300,10 +306,16 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
       uniform float uEdgeFade;
       uniform int   uShapeType;
 
-      // Liquid uniforms
+      // Cursor effect uniforms
       uniform sampler2D uTouchTexture;
       uniform float uLiquidStrength;
       uniform float uLiquidWobble;
+      uniform vec2 uMousePos;
+      uniform float uMouseRadius;
+      uniform float uWaveStrength;
+      uniform float uWaveFrequency;
+      uniform int uEffectLiquid;
+      uniform int uEffectWave;
 
       const int SHAPE_SQUARE   = 0;
       const int SHAPE_CIRCLE   = 1;
@@ -381,22 +393,36 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
       }
 
       void main(){
-        // Sample touch texture for liquid distortion
-        vec4 touchData = texture2D(uTouchTexture, vUv);
-        float vx = touchData.r * 2.0 - 1.0;
-        float vy = touchData.g * 2.0 - 1.0;
-        float intensity = touchData.b;
-
-        // Apply wobble animation to liquid
-        float wobble = 0.5 + 0.5 * sin(uTime * uLiquidWobble + intensity * 6.2831853);
-        float liquidAmt = uLiquidStrength * intensity * wobble;
-
-        // Distort UV coordinates
-        vec2 distortedUV = vUv + vec2(vx, vy) * liquidAmt;
-
-        // Convert to fragment coordinates with distortion
         vec2 baseFragCoord = gl_FragCoord.xy;
-        vec2 distortOffset = vec2(vx, vy) * liquidAmt * uResolution;
+        vec2 distortOffset = vec2(0.0);
+        float radius = uMouseRadius * min(uResolution.x, uResolution.y);
+
+        // ========== EFFECT: LIQUID (additive) ==========
+        if (uEffectLiquid == 1) {
+          vec4 touchData = texture2D(uTouchTexture, vUv);
+          float vx = touchData.r * 2.0 - 1.0;
+          float vy = touchData.g * 2.0 - 1.0;
+          float intensity = touchData.b;
+          float wobble = 0.5 + 0.5 * sin(uTime * uLiquidWobble + intensity * 6.2831853);
+          float liquidAmt = uLiquidStrength * intensity * wobble;
+          distortOffset += vec2(vx, vy) * liquidAmt * uResolution;
+        }
+
+        // ========== EFFECT: WAVE (additive) ==========
+        if (uEffectWave == 1 && uMousePos.x >= 0.0) {
+          vec2 toMouse = uMousePos - baseFragCoord;
+          float dist = length(toMouse);
+          float waveRadius = radius * 2.0;
+          if (dist < waveRadius) {
+            float strength = 1.0 - dist / waveRadius;
+            strength = strength * strength;
+            float waveX = sin(baseFragCoord.y * uWaveFrequency + uTime * 4.0) * strength * uWaveStrength;
+            float waveY = sin(baseFragCoord.x * uWaveFrequency + uTime * 3.5) * strength * uWaveStrength;
+            distortOffset += vec2(waveX, waveY);
+          }
+        }
+
+        // Apply distortion
         vec2 fragCoord = baseFragCoord + distortOffset - uResolution * 0.5;
 
         float pixelSize = uPixelSize;
@@ -476,10 +502,16 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
             uRippleThickness: { value: rippleThickness },
             uRippleIntensity: { value: rippleIntensityScale },
             uEdgeFade: { value: edgeFade },
-            // Liquid uniforms
+            // Cursor effect uniforms
             uTouchTexture: { value: touchTexture?.texture || null },
             uLiquidStrength: { value: liquidStrength },
-            uLiquidWobble: { value: liquidWobbleSpeed }
+            uLiquidWobble: { value: liquidWobbleSpeed },
+            uMousePos: { value: new (THREE as any).Vector2(-1, -1) },
+            uMouseRadius: { value: 0.25 },
+            uWaveStrength: { value: waveStrength },
+            uWaveFrequency: { value: waveFrequency },
+            uEffectLiquid: { value: liquid ? 1 : 0 },
+            uEffectWave: { value: wave ? 1 : 0 }
         };
 
         // Create material
@@ -536,18 +568,32 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
             uniforms.uClickPos.value[clickIndex].set(fx, fy);
             uniforms.uClickTimes.value[clickIndex] = uniforms.uTime.value;
             clickIndex = (clickIndex + 1) % MAX_CLICKS;
+            console.log('Pointer down at:', fx, fy);
         };
 
         const onPointerMove = (e: PointerEvent) => {
-            if (!liquid || !touchTexture) return;
-            const { normX, normY } = mapToPixels(e);
-            touchTexture.addTouch({ x: normX, y: 1 - normY });
+            const { fx, fy, normX, normY } = mapToPixels(e);
+
+            // Update mouse position for all effects
+            uniforms.uMousePos.value.set(fx, fy);
+
+            // Update touch texture when liquid effect is active
+            if (touchTexture && (liquid || wave)) {
+                touchTexture.addTouch({ x: normX, y: 1 - normY });
+            }
+
+            // Debug logging
+            if (Math.random() < 0.1) { // Log 10% of moves to avoid spam
+                console.log('Pointer move at:', fx, fy, 'Effects:', { liquid, wave });
+            }
         };
 
         const onPointerLeave = () => {
+            uniforms.uMousePos.value.set(-1, -1);
             if (touchTexture) {
                 touchTexture.reset();
             }
+            console.log('Pointer left canvas');
         };
 
         // Animation loop
@@ -558,8 +604,8 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
 
             uniforms.uTime.value = timeOffset + clock.getElapsedTime() * speed;
 
-            // Update touch texture for liquid effect
-            if (liquid && touchTexture) {
+            // Update touch texture for liquid/wave effects
+            if (touchTexture && (liquid || wave)) {
                 touchTexture.update();
             }
 
@@ -571,10 +617,22 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
         requestAnimationFrame(setSize);
         animate();
 
-        // Add event listeners
+        // Store event handlers for cleanup
+        const handleWindowPointerMove = (e: PointerEvent) => {
+            const rect = canvas.getBoundingClientRect();
+            if (e.clientX >= rect.left && e.clientX <= rect.right &&
+                e.clientY >= rect.top && e.clientY <= rect.bottom) {
+                onPointerMove(e);
+            }
+        };
+
+        // Add event listeners to canvas
         canvas.addEventListener('pointerdown', onPointerDown, { passive: true });
         canvas.addEventListener('pointermove', onPointerMove, { passive: true });
         canvas.addEventListener('pointerleave', onPointerLeave, { passive: true });
+
+        // Also add window-level event listeners as backup
+        window.addEventListener('pointermove', handleWindowPointerMove, { passive: true });
 
         window.addEventListener('resize', setSize);
         window.addEventListener('orientationchange', () => setTimeout(setSize, 100));
@@ -611,6 +669,7 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
             if (window.visualViewport) {
                 window.visualViewport.removeEventListener('resize', setSize);
             }
+            window.removeEventListener('pointermove', handleWindowPointerMove);
             document.removeEventListener('visibilitychange', () => {
                 isVisible = !document.hidden;
                 if (!document.hidden) {
@@ -648,6 +707,9 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
         liquidStrength,
         liquidRadius,
         liquidWobbleSpeed,
+        wave,
+        waveStrength,
+        waveFrequency,
         transparent
     ]);
 

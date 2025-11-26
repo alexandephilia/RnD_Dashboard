@@ -1,31 +1,79 @@
-import { NextRequest } from "next/server";
-import { getMongoClient } from "@/server/db/mongo";
-import { getDbAndCollections } from "@/server/db/mongo";
+import { getDbAndCollections, getMongoClient, getMongoUriInfo, parseMongoUri } from "@/server/db/mongo";
+import dns from "dns/promises";
+
+type SrvLookup = { ok: boolean; records?: number; error?: string };
+type URISource = "MONGO_PUBLIC_URL" | "MONGO_URL" | "MONGODB_URI" | null;
+type DebugMongoResponse = {
+  ok: boolean;
+  env: {
+    MONGO_DB_NAME: string;
+    MONGO_COLLECTION_TOKEN_CALLS: string;
+    MONGO_COLLECTION_USERS: string;
+    hasPublicUrl: boolean;
+    hasInternalUrl: boolean;
+    hasMongodbUri: boolean;
+    uriSource: URISource;
+    uriKind: "srv" | "standard" | null;
+    hostPreview: string | null;
+    srvLookup?: SrvLookup;
+  };
+  databases?: { name: string; sizeOnDisk?: number }[];
+  collections?: string[];
+  sampleTokenCalls?: unknown[];
+  sampleTokenCallsError?: string;
+  sampleUsers?: unknown[];
+  sampleUsersError?: string;
+  connectionTest?: "SUCCESS" | "FAILED";
+  error?: string;
+};
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
-export async function GET(_req: NextRequest) {
+export async function GET() {
+  const { dbName, tokenCalls, users } = getDbAndCollections();
+  const uriInfo = getMongoUriInfo();
+  const parsed: { kind: "srv" | "standard" | null; host: string | null } = uriInfo.uri
+    ? parseMongoUri(uriInfo.uri)
+    : { kind: null, host: null };
+
+  let srvLookup: SrvLookup | undefined = undefined;
+  if (parsed?.kind === "srv" && parsed?.host) {
+    try {
+      const records = await dns.resolveSrv(`_mongodb._tcp.${parsed.host}`);
+      srvLookup = { ok: true, records: records.length };
+    } catch (e: unknown) {
+      srvLookup = { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  }
+
+  const base: DebugMongoResponse = {
+    ok: true,
+    env: {
+      MONGO_DB_NAME: dbName,
+      MONGO_COLLECTION_TOKEN_CALLS: tokenCalls,
+      MONGO_COLLECTION_USERS: users,
+      hasPublicUrl: Boolean(process.env.MONGO_PUBLIC_URL),
+      hasInternalUrl: Boolean(process.env.MONGO_URL),
+      hasMongodbUri: Boolean(process.env.MONGODB_URI),
+      uriSource: uriInfo.source as URISource,
+      uriKind: parsed?.kind || null,
+      hostPreview: parsed?.host || null,
+      srvLookup,
+    },
+  };
+
   try {
     const client = await getMongoClient();
     const admin = client.db().admin();
     const dbs = await admin.listDatabases();
 
-    const { dbName, tokenCalls, users } = getDbAndCollections();
     const db = client.db(dbName);
     const cols = await db.listCollections({}, { nameOnly: true }).toArray();
 
-    const result: any = {
-      ok: true,
-      env: {
-        MONGO_DB_NAME: dbName,
-        MONGO_COLLECTION_TOKEN_CALLS: tokenCalls,
-        MONGO_COLLECTION_USERS: users,
-        hasPublicUrl: Boolean(process.env.MONGO_PUBLIC_URL),
-        hasInternalUrl: Boolean(process.env.MONGO_URL),
-      },
-      databases: dbs.databases?.map((d) => ({ name: d.name, sizeOnDisk: d.sizeOnDisk })),
-      collections: cols.map((c) => c.name),
-    };
+    base.databases = dbs.databases?.map((d) => ({ name: d.name, sizeOnDisk: d.sizeOnDisk }));
+    base.collections = cols.map((c) => c.name);
+    base.connectionTest = "SUCCESS";
 
     // Try small samples to confirm presence
     try {
@@ -33,26 +81,26 @@ export async function GET(_req: NextRequest) {
         .collection(tokenCalls)
         .find({}, { limit: 1, sort: { updatedAt: -1 } })
         .toArray();
-      result.sampleTokenCalls = sampleCalls;
-    } catch (e: any) {
-      result.sampleTokenCallsError = e?.message || String(e);
+      base.sampleTokenCalls = sampleCalls;
+    } catch (e: unknown) {
+      base.sampleTokenCallsError = e instanceof Error ? e.message : String(e);
     }
+
     try {
       const sampleUsers = await db
         .collection(users)
         .find({}, { limit: 1, sort: { updatedAt: -1 } })
         .toArray();
-      result.sampleUsers = sampleUsers;
-    } catch (e: any) {
-      result.sampleUsersError = e?.message || String(e);
+      base.sampleUsers = sampleUsers;
+    } catch (e: unknown) {
+      base.sampleUsersError = e instanceof Error ? e.message : String(e);
     }
 
-    return Response.json(result, { headers: { "Cache-Control": "no-store" } });
-  } catch (e: any) {
-    return Response.json(
-      { ok: false, error: e?.message || String(e) },
-      { status: 500 },
-    );
+    return Response.json(base, { headers: { "Cache-Control": "no-store" } });
+  } catch (e: unknown) {
+    base.ok = false;
+    base.connectionTest = "FAILED";
+    base.error = e instanceof Error ? e.message : String(e);
+    return Response.json(base, { status: 500 });
   }
 }
-
