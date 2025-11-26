@@ -30,9 +30,6 @@ type PixelBlastProps = {
     transparent?: boolean;
     className?: string;
     style?: React.CSSProperties;
-    // New props for layout awareness
-    respectLayout?: boolean;
-    targetSelector?: string;
 };
 
 const SHAPE_MAP: Record<PixelBlastVariant, number> = {
@@ -68,8 +65,6 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
     transparent = false,
     className,
     style,
-    respectLayout = true,
-    targetSelector = '[data-pixelblast-target="true"]',
 }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const sceneRef = useRef<{
@@ -541,47 +536,15 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
         let raf = 0;
         let isVisible = true;
 
-        // Set size function with layout awareness
-        const getSize = () => {
-            if (respectLayout) {
-                // Try to find the target element
-                const targetElement = document.querySelector(targetSelector) as HTMLElement;
-                if (targetElement) {
-                    const rect = targetElement.getBoundingClientRect();
-                    return {
-                        width: rect.width,
-                        height: rect.height,
-                        left: rect.left,
-                        top: rect.top
-                    };
-                }
-            }
-
-            // Fallback to viewport
-            const viewport = getViewportSize();
-            return {
-                width: viewport.width,
-                height: viewport.height,
-                left: 0,
-                top: 0
-            };
-        };
-
+        // Set size function
         const setSize = () => {
-            const size = getSize();
-            const w = size.width;
-            const h = size.height;
+            const viewport = getViewportSize();
+            const w = viewport.width;
+            const h = viewport.height;
 
             renderer.setSize(w, h, false);
             uniforms.uResolution.value.set(canvas.width, canvas.height);
             uniforms.uPixelSize.value = pixelSize * renderer.getPixelRatio();
-
-            // Position canvas correctly
-            canvas.style.position = 'absolute';
-            canvas.style.left = `${size.left}px`;
-            canvas.style.top = `${size.top}px`;
-            canvas.style.width = `${w}px`;
-            canvas.style.height = `${h}px`;
         };
 
         // Map to pixels function
@@ -656,36 +619,10 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
 
         // Store event handlers for cleanup
         const handleWindowPointerMove = (e: PointerEvent) => {
-            if (!respectLayout) {
+            const rect = canvas.getBoundingClientRect();
+            if (e.clientX >= rect.left && e.clientX <= rect.right &&
+                e.clientY >= rect.top && e.clientY <= rect.bottom) {
                 onPointerMove(e);
-                return;
-            }
-
-            // Check if pointer is within target area
-            const targetElement = document.querySelector(targetSelector) as HTMLElement;
-            if (targetElement) {
-                const rect = targetElement.getBoundingClientRect();
-                if (e.clientX >= rect.left && e.clientX <= rect.right &&
-                    e.clientY >= rect.top && e.clientY <= rect.bottom) {
-                    onPointerMove(e);
-                }
-            }
-        };
-
-        const handleWindowPointerDown = (e: PointerEvent) => {
-            if (!respectLayout) {
-                onPointerDown(e);
-                return;
-            }
-
-            // Check if pointer is within target area
-            const targetElement = document.querySelector(targetSelector) as HTMLElement;
-            if (targetElement) {
-                const rect = targetElement.getBoundingClientRect();
-                if (e.clientX >= rect.left && e.clientX <= rect.right &&
-                    e.clientY >= rect.top && e.clientY <= rect.bottom) {
-                    onPointerDown(e);
-                }
             }
         };
 
@@ -696,7 +633,6 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
 
         // Also add window-level event listeners as backup
         window.addEventListener('pointermove', handleWindowPointerMove, { passive: true });
-        window.addEventListener('pointerdown', handleWindowPointerDown, { passive: true });
 
         window.addEventListener('resize', setSize);
         window.addEventListener('orientationchange', () => setTimeout(setSize, 100));
@@ -734,7 +670,6 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
                 window.visualViewport.removeEventListener('resize', setSize);
             }
             window.removeEventListener('pointermove', handleWindowPointerMove);
-            window.removeEventListener('pointerdown', handleWindowPointerDown);
             document.removeEventListener('visibilitychange', () => {
                 isVisible = !document.hidden;
                 if (!document.hidden) {
@@ -775,9 +710,7 @@ const PixelBlast: React.FC<PixelBlastProps> = ({
         wave,
         waveStrength,
         waveFrequency,
-        transparent,
-        respectLayout,
-        targetSelector
+        transparent
     ]);
 
     return (

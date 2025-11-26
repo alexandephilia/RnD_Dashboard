@@ -44,9 +44,8 @@ export default function RootLayout({
                     speed={0.6}
                     edgeFade={0.25}
                     transparent
-                    respectLayout={false}
                 />
-                <div className="relative z-10 min-h-svh" data-pixelblast-target="true">
+                <div className="relative z-10 min-h-svh">
                     {children}
                 </div>
             </body>
